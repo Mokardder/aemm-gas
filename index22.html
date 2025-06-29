@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebRTC Screen Sharing Viewer</title>
+    <style>
+      /* (same styling as before) */
+      :root {
+        --primary: #4a6fa5;
+        --secondary: #166088;
+        --dark: #2c3e50;
+        --light: #ecf0f1;
+        --success: #27ae60;
+        --danger: #e74c3c;
+      }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+        color: var(--light);
+        margin: 0;
+        padding: 20px;
+      }
+      .container {
+        max-width: 1200px;
+        margin: auto;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+      }
+      header {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        padding: 30px;
+        text-align: center;
+      }
+      .status-bar {
+        background: var(--dark);
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        padding: 15px 25px;
+      }
+      .status-indicator {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #ccc;
+      }
+      .status-indicator.connected {
+        background: var(--success);
+        animation: pulse 1.5s infinite;
+      }
+      @keyframes pulse {
+        0% {
+          opacity: 0.7;
+        }
+        50% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0.7;
+        }
+      }
+      .content {
+        padding: 30px;
+      }
+      .control-panel label {
+        display: block;
+        margin-top: 10px;
+      }
+      .control-panel input,
+      .control-panel button {
+        width: 100%;
+        padding: 14px;
+        margin-top: 5px;
+        border-radius: 8px;
+        font-size: 16px;
+      }
+      .control-panel button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      .control-panel button.disconnect {
+        background: var(--danger);
+      }
+      .video-container {
+        position: relative;
+        background: #000;
+        border-radius: 12px;
+        overflow: hidden;
+        min-height: 400px;
+        margin-top: 20px;
+      }
+      #remoteVideo {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      .placeholder {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #aaa;
+        background: #111;
+      }
+      .log {
+        background: #2c3e50;
+        color: #ecf0f1;
+        padding: 20px;
+        border-radius: 10px;
+        margin: 30px 0;
+        max-height: 250px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 0.95rem;
+      }
+      footer {
+        text-align: center;
+        padding: 25px;
+        color: #777;
+        font-size: 1rem;
+        background: #f8f9fa;
+      }
+    </style>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Screen Sharing Viewer</h1>
+        <p class="subtitle">View Android screens in real time</p>
+      </header>
+
+      <div class="status-bar">
+        <div class="status">
+          <div id="connectionStatus" class="status-indicator"></div>
+          <span id="statusText">Disconnected</span>
+        </div>
+        <div>Signaling: Firebase RTDB</div>
+      </div>
+
+      <div class="content">
+        <div class="control-panel">
+          <label for="username">Viewer ID</label>
+          <input id="username" value="viewer-001" />
+
+          <label for="target">Streamer ID</label>
+          <input id="target" value="android-device" />
+
+          <button id="requestBtn" disabled>Request Screen Share</button>
+          <button id="disconnectBtn" class="disconnect" disabled>
+            End Viewing
+          </button>
+        </div>
+
+        <div class="video-container">
+          <video id="remoteVideo" autoplay playsinline></video>
+          <div id="videoPlaceholder" class="placeholder">
+            No active screen share
+          </div>
+        </div>
+
+        <div class="log">
+          <div class="log-entry">[System] Log:</div>
+          <div id="logContainer"></div>
+        </div>
+      </div>
+
+      <footer>WebRTC Screen Sharing Viewer</footer>
+    </div>
+
+    <script>
+      // --- CONFIG ---
+      const firebaseConfig = {
+        apiKey: "AIzaSyBpO0ReUf7r6QrjX1kMG7Yv0chl-nVuRok",
+        authDomain: "screenshareserver-c7ec1.firebaseapp.com",
+        databaseURL:
+          "https://screenshareserver-c7ec1-default-rtdb.firebaseio.com",
+        projectId: "screenshareserver-c7ec1",
+        storageBucket: "screenshareserver-c7ec1.appspot.com",
+        messagingSenderId: "779415078321",
+        appId: "1:779415078321:web:f07be1fb25e0eea9b32990",
+      };
+      firebase.initializeApp(firebaseConfig);
+      const database = firebase.database();
+      const PC_CONFIG = {
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      };
+
+      // --- UI REFS ---
+      const connectionStatus = document.getElementById("connectionStatus");
+      const statusText = document.getElementById("statusText");
+      const requestBtn = document.getElementById("requestBtn");
+      const disconnectBtn = document.getElementById("disconnectBtn");
+      const usernameInput = document.getElementById("username");
+      const targetInput = document.getElementById("target");
+      const remoteVideo = document.getElementById("remoteVideo");
+      const videoPlaceholder = document.getElementById("videoPlaceholder");
+      const logContainer = document.getElementById("logContainer");
+
+      let peerConnection, localUsername, targetUsername, signalsRef;
+
+      const MsgType = {
+        SignIn: "SignIn",
+        StartStreaming: "StartStreaming",
+        Offer: "Offer",
+        Answer: "Answer",
+        IceCandidates: "IceCandidates",
+        EndCall: "EndCall",
+        PermGranted: "PermGranted",
+      };
+
+      function init() {
+        // buttons
+        requestBtn.onclick = requestScreenShare;
+        disconnectBtn.onclick = disconnect;
+
+        // Firebase connection monitor
+        database.ref(".info/connected").on("value", (snap) => {
+          if (snap.val()) {
+            log("Connected to Firebase");
+            setUI("connected");
+            setupSignaling();
+          } else {
+            log("Disconnected from Firebase", "warn");
+            setUI("disconnected");
+          }
+        });
+      }
+
+      function setupSignaling() {
+        localUsername = usernameInput.value.trim();
+        if (!localUsername) return log("Enter Viewer ID", "error");
+
+        if (signalsRef) signalsRef.off(); // detach old listener
+        signalsRef = database.ref(`signals/${localUsername}`);
+        signalsRef.on("child_added", (snap) => {
+          const msg = snap.val();
+          log(`← ${msg.type}`);
+          handleMessage(msg);
+          snap.ref.remove(); // clean up
+        });
+      }
+
+      function handleMessage(msg) {
+        switch (msg.type) {
+          case MsgType.Offer:
+            return onOffer(msg);
+          case MsgType.Answer:
+            return onAnswer(msg);
+          case MsgType.IceCandidates:
+            return onIce(msg.data);
+          case MsgType.EndCall:
+            return onEnd();
+          case MsgType.PermGranted:
+            return requestScreenShare();
+        }
+      }
+
+      function requestScreenShare() {
+        targetUsername = targetInput.value.trim();
+        if (!targetUsername) return log("Enter Streamer ID", "error");
+
+        send({
+          type: MsgType.StartStreaming,
+          username: localUsername,
+          target: targetUsername,
+          data: "",
+        });
+        log(`→ ${MsgType.StartStreaming}`);
+      }
+
+      function onOffer(msg) {
+        createPeer();
+        peerConnection
+          .setRemoteDescription({ type: "offer", sdp: msg.data })
+          .then(() => peerConnection.createAnswer())
+          .then((ans) => {
+            peerConnection.setLocalDescription(ans);
+            send({
+              type: MsgType.Answer,
+              username: localUsername,
+              target: targetUsername,
+              data: ans.sdp,
+            });
+            log(`→ ${MsgType.Answer}`);
+          })
+          .catch((e) => log("Offer error: " + e, "error"));
+      }
+
+      function onAnswer(msg) {
+        peerConnection.setRemoteDescription({ type: "answer", sdp: msg.data });
+      }
+
+      function onIce(candidate) {
+        peerConnection.addIceCandidate(candidate);
+      }
+
+      function onEnd() {
+        log("Call ended");
+        resetPeer();
+        setUI("connected");
+      }
+
+      function createPeer() {
+        peerConnection = new RTCPeerConnection(PC_CONFIG);
+
+        peerConnection.onicecandidate = (e) => {
+          if (e.candidate) {
+            send({
+              type: MsgType.IceCandidates,
+              username: localUsername,
+              target: targetUsername,
+              data: e.candidate,
+            });
+            log(`→ ${MsgType.IceCandidates}`);
+          }
+        };
+
+        peerConnection.ontrack = (e) => {
+          remoteVideo.srcObject = e.streams[0];
+          videoPlaceholder.style.display = "none";
+          log("Remote video started");
+        };
+
+        peerConnection.onconnectionstatechange = () => {
+          log("Conn state: " + peerConnection.connectionState);
+        };
+        peerConnection.oniceconnectionstatechange = () => {
+          log("ICE state: " + peerConnection.iceConnectionState);
+        };
+      }
+
+      function disconnect() {
+        send({
+          type: MsgType.EndCall,
+          username: localUsername,
+          target: targetUsername,
+          data: "",
+        });
+        log(`→ ${MsgType.EndCall}`);
+        resetPeer();
+        setUI("connected");
+      }
+
+      function resetPeer() {
+        peerConnection?.close();
+        peerConnection = null;
+        remoteVideo.srcObject = null;
+        videoPlaceholder.style.display = "flex";
+      }
+
+      function send(msg) {
+        database.ref(`signals/${msg.target}`).push({
+          type: msg.type,
+          username: msg.username,
+          data: msg.data || null,
+        });
+      }
+
+      function setUI(state) {
+        if (state === "connected") {
+          connectionStatus.classList.add("connected");
+          statusText.textContent = `Connected: ${localUsername}`;
+          requestBtn.disabled = false;
+          disconnectBtn.disabled = false;
+        } else {
+          connectionStatus.classList.remove("connected");
+          statusText.textContent = "Disconnected";
+          requestBtn.disabled = true;
+          disconnectBtn.disabled = true;
+        }
+      }
+
+      function log(txt, lvl = "info") {
+        const d = new Date().toLocaleTimeString();
+        const e = document.createElement("div");
+        e.className = `log-entry ${lvl}`;
+        e.textContent = `[${d}] ${txt}`;
+        logContainer.appendChild(e);
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+
+      window.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>
