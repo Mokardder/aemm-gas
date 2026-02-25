@@ -157,6 +157,8 @@
     .invoice-head { display:flex; justify-content: space-between; gap: 12px; border-bottom:1px dashed var(--border); padding-bottom: 12px; margin-bottom: 12px; }
     .logo-ph { width:60px; height:60px; border:2px dashed #cbd5e1; border-radius: 10px; display:grid; place-items:center; color:#64748b; }
     .muted { color: var(--muted); }
+    .bill-to-box { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
+    .bill-to-box p { margin: 4px 0; font-size: .88rem; }
     @media (max-width: 1024px) {
       .billing-wrap { grid-template-columns: 1fr; }
       .sticky { position: static; }
@@ -170,10 +172,10 @@
     @media print {
       body * { visibility: hidden; }
       #printableInvoice, #printableInvoice * { visibility: visible; }
-      #printableInvoice { position: absolute; left: 0; top: 0; width: 100%; min-height: 100vh; box-shadow:none; border:none; display:flex; flex-direction:column; }
+      #printableInvoice { position: static; width: 100%; min-height: auto; box-shadow:none; border:none; display:block; overflow: visible; }
       .invoice-header-print { position: static; background:#fff; padding: 10px 0; }
-      .invoice-body-print { margin-top: 8px; flex: 1; }
-      .invoice-footer-print { margin-top: auto; background:#fff; border-top:1px dashed #cbd5e1; padding-top: 10px; }
+      .invoice-body-print { margin-top: 8px; }
+      .invoice-footer-print { margin-top: 18px; background:#fff; border-top:1px dashed #cbd5e1; padding-top: 10px; }
       .no-print { display: none !important; }
     }
   </style>
@@ -808,13 +810,17 @@
           <small class="muted">Professional Billing Invoice</small>
           <p class="muted" style="margin:4px 0 0"><strong>Shop Address:</strong> ${byId('shopAddress').value}</p>
           <p class="muted" style="margin:2px 0 0"><strong>Shop Contact:</strong> ${byId('shopContact').value}</p>
+          <div class="bill-to-box">
+            <p><strong>Bill To</strong></p>
+            <p><strong>Name:</strong> ${inv.customer.name}</p>
+            <p><strong>Contact:</strong> ${inv.customer.phone}</p>
+            <p><strong>Address:</strong> ${inv.customer.address}</p>
+          </div>
         </div>
         <div style="text-align:right">
           <p><strong>Invoice #:</strong> ${inv.id}</p>
           <p><strong>Date:</strong> ${new Date(inv.date).toLocaleString('en-IN')}</p>
           <p><strong>Payment:</strong> ${inv.paymentMode}</p>
-          <p><strong>Bill To:</strong> ${inv.customer.name} (${inv.customer.phone})</p>
-          <p><strong>Customer Address:</strong> ${inv.customer.address}</p>
         </div>
       </div></div>
       <div class="invoice-body-print">
