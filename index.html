@@ -134,7 +134,7 @@
     .form-grid .full { grid-column: 1/-1; }
     .toast-wrap { position: fixed; right: 16px; top: 16px; display: grid; gap: 8px; z-index: 20; }
     .toast { background: #0f172a; color: #fff; padding: 10px 12px; border-radius: 10px; box-shadow: var(--shadow); }
-    .invoice-box { background: #fff; border:1px solid var(--border); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); }
+    .invoice-box { background: #fff; border:1px solid var(--border); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); min-height: calc(100vh - 140px); }
     .invoice-head { display:flex; justify-content: space-between; gap: 12px; border-bottom:1px dashed var(--border); padding-bottom: 12px; margin-bottom: 12px; }
     .logo-ph { width:60px; height:60px; border:2px dashed #cbd5e1; border-radius: 10px; display:grid; place-items:center; color:#64748b; }
     .muted { color: var(--muted); }
@@ -151,7 +151,7 @@
     @media print {
       body * { visibility: hidden; }
       #printableInvoice, #printableInvoice * { visibility: visible; }
-      #printableInvoice { position: absolute; left: 0; top: 0; width: 100%; box-shadow:none; border:none; }
+      #printableInvoice { position: absolute; left: 0; top: 0; width: 100%; min-height: 100vh; box-shadow:none; border:none; }
       .no-print { display: none !important; }
     }
   </style>
@@ -223,11 +223,19 @@
           <div class="totals">
             <p><span>Subtotal</span><strong id="subTotal">₹ 0.00</strong></p>
             <p><span>Discount</span><strong id="totalDiscount">₹ 0.00</strong></p>
+            <p><span>Bill Discount</span><span class="row" style="justify-content:flex-end"><select id="billDiscountType" style="width:92px"><option value="fixed">₹</option><option value="percent">%</option></select><input id="billDiscountValue" type="number" min="0" value="0" style="width:90px"/></span></p>
             <p><span>GST</span><span><input id="gstInput" type="number" value="0" min="0" max="50" style="width:70px"/> %</span></p>
             <p class="grand"><span>Grand Total</span><strong id="grandTotal">₹ 0.00</strong></p>
           </div>
           <hr>
           <h4>👤 Customer</h4>
+          <select id="savedCustomerSelect">
+            <option value="">Select Saved Customer</option>
+          </select>
+          <div class="search-wrap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor"/><path d="M20 20l-4-4" stroke="currentColor"/></svg>
+            <input id="customerSearch" placeholder="Search saved customer" />
+          </div>
           <input id="walkInName" placeholder="Walk-in Customer Name" />
           <input id="walkInPhone" placeholder="Phone Number" />
           <textarea id="walkInAddress" placeholder="Address"></textarea>
@@ -297,7 +305,7 @@
 <script>
   const DB_KEYS = { inventory: 'ims_inventory', customers: 'ims_customers', bills: 'ims_bills' };
   let state = {
-    inventory: [], customers: [], bills: [], currentCart: [], editingItemId: null, editingCustomerId: null, selectedProductId: null, currentInvoice: null
+    inventory: [], customers: [], bills: [], currentCart: [], editingItemId: null, editingCustomerId: null, selectedProductId: null, selectedCustomerId: '', currentInvoice: null
   };
 
   const byId = (id) => document.getElementById(id);
@@ -481,7 +489,9 @@
   }
   function updateCartDiscount(id, value) {
     const item = state.currentCart.find(c => c.id === id);
-    item.discount = Math.max(0, +value || 0); calculateTotals();
+    const maxLine = item.price * item.quantity;
+    item.discount = Math.min(Math.max(0, +value || 0), maxLine);
+    calculateTotals();
   }
   function removeCartItem(id) {
     state.currentCart = state.currentCart.filter(c => c.id !== id); renderCart();
@@ -489,15 +499,22 @@
 
   function calculateTotals() {
     const subtotal = state.currentCart.reduce((s, i) => s + i.price * i.quantity, 0);
-    const discount = state.currentCart.reduce((s, i) => s + i.discount, 0);
+    const itemLevelDiscount = state.currentCart.reduce((s, i) => s + i.discount, 0);
+    const billDiscountType = byId('billDiscountType').value;
+    const billDiscountValue = Math.max(0, +byId('billDiscountValue').value || 0);
+    const afterItemDiscount = Math.max(subtotal - itemLevelDiscount, 0);
+    const billDiscount = billDiscountType === 'percent'
+      ? (afterItemDiscount * Math.min(billDiscountValue, 100) / 100)
+      : Math.min(billDiscountValue, afterItemDiscount);
+    const discount = itemLevelDiscount + billDiscount;
     const gstPercent = +byId('gstInput').value || 0;
-    const taxable = Math.max(subtotal - discount, 0);
+    const taxable = Math.max(afterItemDiscount - billDiscount, 0);
     const gst = taxable * gstPercent / 100;
     const grand = taxable + gst;
     byId('subTotal').textContent = inr(subtotal);
     byId('totalDiscount').textContent = inr(discount);
     byId('grandTotal').textContent = inr(grand);
-    return { subtotal, discount, gstPercent, gst, grand };
+    return { subtotal, itemLevelDiscount, billDiscountType, billDiscountValue, billDiscount, discount, gstPercent, gst, grand };
   }
 
   function numberToWordsIndian(num) {
@@ -523,13 +540,32 @@
     return parts.join(' ').replace(/\s+/g,' ').trim() + ' Rupees Only';
   }
 
+
+  function renderCustomerOptions() {
+    const select = byId('savedCustomerSelect');
+    const q = byId('customerSearch').value.trim().toLowerCase();
+    const filtered = state.customers.filter(c => `${c.name} ${c.phone} ${c.address}`.toLowerCase().includes(q));
+    select.innerHTML = '<option value="">Select Saved Customer</option>' + filtered.map(c => `<option value="${c.id}">${c.name} (${c.phone})</option>`).join('');
+    if (state.selectedCustomerId) select.value = state.selectedCustomerId;
+  }
+
+  function applySelectedCustomer(customerId) {
+    state.selectedCustomerId = customerId;
+    if (!customerId) return;
+    const customer = state.customers.find(c => c.id === customerId);
+    if (!customer) return;
+    byId('walkInName').value = customer.name;
+    byId('walkInPhone').value = customer.phone;
+    byId('walkInAddress').value = customer.address;
+  }
+
   function proceedInvoice() {
     if (!state.currentCart.length) return showToast('Add items in cart first');
     for (const c of state.currentCart) {
       const inv = state.inventory.find(i => i.id === c.id);
       if (c.quantity > inv.stock) return showToast(`Stock insufficient for ${c.name}`);
     }
-    const { subtotal, discount, gstPercent, gst, grand } = calculateTotals();
+    const { subtotal, itemLevelDiscount, billDiscountType, billDiscountValue, billDiscount, discount, gstPercent, gst, grand } = calculateTotals();
     const customer = {
       name: byId('walkInName').value.trim() || 'Walk-in Customer',
       phone: byId('walkInPhone').value.trim() || '-',
@@ -548,7 +584,7 @@
       date: new Date().toISOString(),
       customer,
       items: state.currentCart.map(i => ({ ...i })),
-      subtotal, discount, gstPercent, gst, grandTotal: grand, paymentMode
+      subtotal, itemLevelDiscount, billDiscountType, billDiscountValue, billDiscount, discount, gstPercent, gst, grandTotal: grand, paymentMode
     };
     // @Mokardder - Save billing transaction to DB here
     state.bills.unshift(invoice);
@@ -562,6 +598,8 @@
     }
 
     state.currentCart = [];
+    state.selectedCustomerId = '';
+    byId('savedCustomerSelect').value = '';
     byId('walkInName').value = byId('walkInPhone').value = byId('walkInAddress').value = '';
     renderAll();
     switchTab('invoicing');
@@ -596,7 +634,7 @@
     if (!confirm('Delete this customer?')) return;
     // @Mokardder - Customer DB operations here
     state.customers = state.customers.filter(c => c.id !== id);
-    persistCustomers(); renderCustomers(); showToast('Customer deleted');
+    persistCustomers(); renderCustomers(); renderCustomerOptions(); showToast('Customer deleted');
   }
 
   function renderInvoice() {
@@ -623,7 +661,9 @@
       </table>
       <div style="margin-top:10px; max-width:320px; margin-left:auto">
         <p style="display:flex;justify-content:space-between"><span>Subtotal:</span><strong>${inr(inv.subtotal)}</strong></p>
-        <p style="display:flex;justify-content:space-between"><span>Discount:</span><strong>${inr(inv.discount)}</strong></p>
+        <p style="display:flex;justify-content:space-between"><span>Item Discount:</span><strong>${inr(inv.itemLevelDiscount || 0)}</strong></p>
+        <p style="display:flex;justify-content:space-between"><span>Bill Discount (${inv.billDiscountType === 'percent' ? (inv.billDiscountValue + '%') : '₹'}):</span><strong>${inr(inv.billDiscount || 0)}</strong></p>
+        <p style="display:flex;justify-content:space-between"><span>Total Discount:</span><strong>${inr(inv.discount)}</strong></p>
         <p style="display:flex;justify-content:space-between"><span>GST (${inv.gstPercent}%):</span><strong>${inr(inv.gst)}</strong></p>
         <p style="display:flex;justify-content:space-between;font-size:1.1rem"><span>Total:</span><strong>${inr(inv.grandTotal)}</strong></p>
       </div>
@@ -633,7 +673,7 @@
   }
 
   function renderAll() {
-    renderDashboard(); renderInventory(); renderBillingProducts(); renderCart(); renderCustomers(); renderInvoice();
+    renderDashboard(); renderInventory(); renderBillingProducts(); renderCart(); renderCustomers(); renderCustomerOptions(); renderInvoice();
   }
 
   function closeModal(id) { byId(id).classList.remove('active'); }
@@ -666,6 +706,10 @@
   byId('billingSearch').addEventListener('input', refreshProductGrid);
   byId('billingCategoryFilter').addEventListener('change', refreshProductGrid);
   byId('gstInput').addEventListener('input', calculateTotals);
+  byId('billDiscountType').addEventListener('change', calculateTotals);
+  byId('billDiscountValue').addEventListener('input', calculateTotals);
+  byId('customerSearch').addEventListener('input', renderCustomerOptions);
+  byId('savedCustomerSelect').addEventListener('change', (e) => applySelectedCustomer(e.target.value));
   byId('proceedInvoice').addEventListener('click', proceedInvoice);
   byId('addCustomerBtn').addEventListener('click', () => openCustomerModal());
   byId('customerForm').addEventListener('submit', (e) => {
@@ -677,7 +721,7 @@
     // @Mokardder - Customer DB operations here
     if (state.editingCustomerId) state.customers = state.customers.map(c => c.id === rec.id ? rec : c);
     else state.customers.unshift(rec);
-    persistCustomers(); closeModal('customerModal'); renderCustomers(); showToast('Customer saved');
+    persistCustomers(); closeModal('customerModal'); renderCustomers(); renderCustomerOptions(); showToast('Customer saved');
   });
 
   byId('printBtn').addEventListener('click', () => window.print());
