@@ -30,11 +30,11 @@
     }
     .app {
       display: grid;
-      grid-template-columns: 260px 1fr;
+      grid-template-columns: 82px 1fr;
       min-height: 100vh;
       transition: var(--transition);
     }
-    .app.sidebar-collapsed { grid-template-columns: 82px 1fr; }
+    .app.sidebar-expanded { grid-template-columns: 260px 1fr; }
     .sidebar {
       position: sticky;
       top: 0;
@@ -50,9 +50,9 @@
     }
     .sidebar-toggle { border:none; background:rgba(148,163,184,.2); color:#fff; border-radius:10px; width:36px; height:36px; cursor:pointer; }
     .nav-btn i { width:18px; text-align:center; }
-    .app.sidebar-collapsed .sidebar { padding: 20px 10px; }
-    .app.sidebar-collapsed .brand span, .app.sidebar-collapsed .nav-btn span { display:none; }
-    .app.sidebar-collapsed .nav-btn { justify-content:center; }
+    .app:not(.sidebar-expanded) .sidebar { padding: 20px 10px; }
+    .app:not(.sidebar-expanded) .brand span, .app:not(.sidebar-expanded) .nav-btn span { display:none; }
+    .app:not(.sidebar-expanded) .nav-btn { justify-content:center; }
     .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
     .nav-btn {
       width: 100%;
@@ -178,6 +178,9 @@
       .invoice-header-print { position: static; background:#fff; padding: 10px 0; }
       .invoice-body-print { margin-top: 8px; }
       .invoice-footer-print { margin-top: 18px; background:#fff; border-top:1px dashed #cbd5e1; padding-top: 10px; }
+      #printableInvoice::before { display:none; }
+      .invoice-body-print table { width:100%; page-break-inside:auto; }
+      .invoice-body-print tr, .invoice-body-print td, .invoice-body-print th { page-break-inside:avoid; }
       .no-print { display: none !important; }
     }
   </style>
@@ -311,7 +314,7 @@
 </div>
 
 <div class="modal" id="itemModal"><div class="modal-content">
-  <h3 id="itemModalTitle">Add Inventory Item</h3>
+  <h3>Add Inventory Item</h3>
   <p id="itemModalAlert" class="dialog-note">Create a new inventory item record.</p>
   <form id="itemForm" class="form-grid">
     <input class="full" name="name" placeholder="Item Name" required />
@@ -536,8 +539,7 @@
   function openItemModal(id = null) {
     state.editingItemId = id;
     const m = byId('itemModal'); const f = byId('itemForm');
-    byId('itemModalTitle').textContent = id ? 'Edit Inventory Item' : 'Add Inventory Item';
-    byId('itemModalAlert').textContent = id ? 'Editing inventory item details (please verify values before saving).' : 'Create a new inventory item record.';
+    byId('itemModalAlert').textContent = id ? 'Edit inventory item details (please verify values before saving).' : 'Create a new inventory item record.';
     f.reset();
     populateCategoryOptions();
     toggleNewCategoryInput();
@@ -746,12 +748,6 @@
     persistBills();
     state.currentInvoice = invoice;
 
-    const existingCustomer = state.customers.find(c => c.phone === customer.phone && customer.phone !== '-');
-    if (!existingCustomer && customer.phone !== '-') {
-      state.customers.push({ id: uid(), ...customer });
-      persistCustomers();
-    }
-
     state.currentCart = [];
     state.selectedCustomerId = '';
     byId('savedCustomerSelect').value = '';
@@ -909,7 +905,11 @@
   byId('companyName').addEventListener('input', renderInvoice);
   byId('shopAddress').addEventListener('input', renderInvoice);
   byId('shopContact').addEventListener('input', renderInvoice);
-  byId('sidebarToggle').addEventListener('click', () => document.querySelector('.app').classList.toggle('sidebar-collapsed'));
+  const appShell = document.querySelector('.app');
+  const sidebarEl = document.querySelector('.sidebar');
+  sidebarEl.addEventListener('mouseenter', () => appShell.classList.add('sidebar-expanded'));
+  sidebarEl.addEventListener('mouseleave', () => appShell.classList.remove('sidebar-expanded'));
+  byId('sidebarToggle').addEventListener('click', () => appShell.classList.toggle('sidebar-expanded'));
   document.querySelectorAll('.tab-chip').forEach(btn => btn.addEventListener('click', () => setCustomerTab(btn.dataset.customerTab)));
   byId('qaAddItem').addEventListener('click', () => { switchTab('inventory'); openItemModal(); });
   byId('qaCreateBill').addEventListener('click', () => switchTab('billing'));
