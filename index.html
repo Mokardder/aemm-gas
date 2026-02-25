@@ -156,7 +156,9 @@
     .invoice-box > * { position:relative; z-index:1; }
     #invoicing.panel.active { display: flex; flex-direction: column; min-height: calc(100vh - 40px); }
     #invoicing .invoice-box { flex: 1; min-height: calc(100vh - 180px); }
-    .invoice-head { display:flex; justify-content: space-between; gap: 12px; border-bottom:1px dashed var(--border); padding-bottom: 12px; margin-bottom: 12px; }
+    .invoice-head { border-bottom:1px dashed var(--border); padding-bottom: 12px; margin-bottom: 12px; }
+    .invoice-grid-head { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+    .invoice-col-right { text-align:right; }
     .logo-ph { width:60px; height:60px; border:2px dashed #cbd5e1; border-radius: 10px; display:grid; place-items:center; color:#64748b; }
     .muted { color: var(--muted); }
     .bill-to-box { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
@@ -172,13 +174,15 @@
       .cart-item { grid-template-columns: 1fr; border:1px solid var(--border); border-radius: 10px; padding:8px; }
     }
     @media print {
+      @page { size: A4; margin: 10mm; }
+      html, body { width: 210mm; min-height: 297mm; background:#fff; }
       body * { visibility: hidden; }
       #printableInvoice, #printableInvoice * { visibility: visible; }
-      #printableInvoice { position: static; width: 100%; min-height: auto; box-shadow:none; border:none; display:block; overflow: visible; }
-      .invoice-header-print { position: static; background:#fff; padding: 10px 0; }
-      .invoice-body-print { margin-top: 8px; }
-      .invoice-footer-print { margin-top: 18px; background:#fff; border-top:1px dashed #cbd5e1; padding-top: 10px; }
+      #printableInvoice { position: static; width: 100%; min-height: 277mm; box-shadow:none; border:1px solid #94a3b8; display:flex; flex-direction:column; overflow: visible; }
       #printableInvoice::before { display:none; }
+      .invoice-header-print { position: static; padding: 8px 0; }
+      .invoice-body-print { margin-top: 6px; flex:1; }
+      .invoice-footer-print { margin-top: 12px; border-top:1px dashed #cbd5e1; padding-top: 10px; }
       .invoice-body-print table { width:100%; page-break-inside:auto; }
       .invoice-body-print tr, .invoice-body-print td, .invoice-body-print th { page-break-inside:avoid; }
       .no-print { display: none !important; }
@@ -801,8 +805,8 @@
     ].join('');
 
     byId('printableInvoice').innerHTML = `
-      <div class="invoice-header-print"><div class="invoice-head">
-        <div>
+      <div class="invoice-header-print"><div class="invoice-title-print" style="text-align:center; font-size:1.1rem; letter-spacing:.12em; font-weight:700; margin:4px 0 8px;">INVOICE</div><div class="invoice-head">
+        <div class="invoice-grid-head"><div>
           <div class="logo-ph">Logo</div>
           <h2 style="margin:8px 0 0">${byId('companyName').value}</h2>
           <small class="muted">Professional Billing Invoice</small>
@@ -815,12 +819,12 @@
             <p><strong>Address:</strong> ${inv.customer.address}</p>
           </div>
         </div>
-        <div style="text-align:right">
+        <div class="invoice-col-right">
           <p><strong>Invoice #:</strong> ${inv.id}</p>
           <p><strong>Date:</strong> ${new Date(inv.date).toLocaleString('en-IN')}</p>
           <p><strong>Payment:</strong> ${inv.paymentMode}</p>
         </div>
-      </div></div>
+      </div></div></div>
       <div class="invoice-body-print">
       <table>
         <thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Discount</th><th>Total</th></tr></thead>
