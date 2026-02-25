@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Inventory Management + Billing System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <style>
     :root {
       --bg: #f4f6fb;
@@ -31,7 +32,9 @@
       display: grid;
       grid-template-columns: 260px 1fr;
       min-height: 100vh;
+      transition: var(--transition);
     }
+    .app.sidebar-collapsed { grid-template-columns: 82px 1fr; }
     .sidebar {
       position: sticky;
       top: 0;
@@ -42,7 +45,14 @@
       display: flex;
       flex-direction: column;
       gap: 18px;
+      overflow: hidden;
+      transition: var(--transition);
     }
+    .sidebar-toggle { border:none; background:rgba(148,163,184,.2); color:#fff; border-radius:10px; width:36px; height:36px; cursor:pointer; }
+    .nav-btn i { width:18px; text-align:center; }
+    .app.sidebar-collapsed .sidebar { padding: 20px 10px; }
+    .app.sidebar-collapsed .brand span, .app.sidebar-collapsed .nav-btn span { display:none; }
+    .app.sidebar-collapsed .nav-btn { justify-content:center; }
     .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
     .nav-btn {
       width: 100%;
@@ -118,10 +128,16 @@
     .product-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; cursor: pointer; transition: var(--transition); }
     .product-card:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
     .sticky { position: sticky; top: 10px; }
-    .cart-item { display: grid; grid-template-columns: 1fr 80px 90px 90px 70px; gap: 8px; align-items: center; margin: 6px 0; }
+    .cart-item { display: grid; grid-template-columns: 1fr 80px 90px 110px 100px 70px; gap: 8px; align-items: center; margin: 6px 0; }
     .totals p { margin: 6px 0; display: flex; justify-content: space-between; }
     .totals .grand { font-weight: 700; font-size: 1.1rem; }
     .radio-group { display: flex; gap: 16px; }
+    .customer-tabs { display:flex; gap:8px; margin-bottom:8px; }
+    .tab-chip { border:1px solid var(--border); background:#eef2ff; color:#1e3a8a; padding:6px 10px; border-radius:999px; cursor:pointer; font-size:.85rem; }
+    .tab-chip.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .customer-pane { display:none; }
+    .customer-pane.active { display:block; }
+
     .modal {
       position: fixed; inset: 0; display: none; place-items: center;
       background: rgba(15,23,42,.45); z-index: 10;
@@ -134,7 +150,7 @@
     .form-grid .full { grid-column: 1/-1; }
     .toast-wrap { position: fixed; right: 16px; top: 16px; display: grid; gap: 8px; z-index: 20; }
     .toast { background: #0f172a; color: #fff; padding: 10px 12px; border-radius: 10px; box-shadow: var(--shadow); }
-    .invoice-box { background: #fff; border:1px solid var(--border); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); min-height: calc(100vh - 140px); width: 100%; }
+    .invoice-box { background: #fff; border:1px solid var(--border); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); min-height: calc(100vh - 140px); width: 100%; display:flex; flex-direction:column; }
     #invoicing.panel.active { display: flex; flex-direction: column; min-height: calc(100vh - 40px); }
     #invoicing .invoice-box { flex: 1; min-height: calc(100vh - 180px); }
     .invoice-head { display:flex; justify-content: space-between; gap: 12px; border-bottom:1px dashed var(--border); padding-bottom: 12px; margin-bottom: 12px; }
@@ -153,7 +169,10 @@
     @media print {
       body * { visibility: hidden; }
       #printableInvoice, #printableInvoice * { visibility: visible; }
-      #printableInvoice { position: absolute; left: 0; top: 0; width: 100%; min-height: 100vh; box-shadow:none; border:none; }
+      #printableInvoice { position: absolute; left: 0; top: 0; width: 100%; min-height: 100vh; box-shadow:none; border:none; display:flex; flex-direction:column; }
+      .invoice-header-print { position: fixed; top: 0; left: 0; right: 0; background:#fff; padding: 10px 0; }
+      .invoice-body-print { margin-top: 130px; }
+      .invoice-footer-print { margin-top: auto; position: fixed; bottom: 15px; left: 0; right: 0; background:#fff; }
       .no-print { display: none !important; }
     }
   </style>
@@ -161,15 +180,18 @@
 <body>
 <div class="app">
   <aside class="sidebar no-print">
-    <div class="brand">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2l9 4.5v11L12 22l-9-4.5v-11L12 2z" stroke="currentColor"/></svg>
-      Smart Inventory Pro
+    <div class="row" style="justify-content:space-between">
+      <div class="brand">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2l9 4.5v11L12 22l-9-4.5v-11L12 2z" stroke="currentColor"/></svg>
+        <span>Smart Inventory Pro</span>
+      </div>
+      <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar"><i class="fa-solid fa-bars"></i></button>
     </div>
-    <button class="nav-btn active" data-tab="dashboard">📊 Dashboard</button>
-    <button class="nav-btn" data-tab="inventory">📦 Inventory</button>
-    <button class="nav-btn" data-tab="billing">🧾 Billing / Sales</button>
-    <button class="nav-btn" data-tab="customers">👤 Customers</button>
-    <button class="nav-btn" data-tab="invoicing">📄 Invoicing</button>
+    <button class="nav-btn active" data-tab="dashboard"><i class="fa-solid fa-chart-line"></i> <span>Dashboard</span></button>
+    <button class="nav-btn" data-tab="inventory"><i class="fa-solid fa-boxes-stacked"></i> <span>Inventory</span></button>
+    <button class="nav-btn" data-tab="billing"><i class="fa-solid fa-cash-register"></i> <span>Billing / Sales</span></button>
+    <button class="nav-btn" data-tab="customers"><i class="fa-solid fa-users"></i> <span>Customers</span></button>
+    <button class="nav-btn" data-tab="invoicing"><i class="fa-solid fa-file-invoice"></i> <span>Invoicing</span></button>
   </aside>
 
   <main class="main">
@@ -180,9 +202,9 @@
       <div class="grid cards" id="reportCards"></div>
       <h3 class="section-title">Quick Actions</h3>
       <div class="row">
-        <button class="btn" id="qaAddItem">➕ Add Inventory Item</button>
-        <button class="btn" id="qaCreateBill">🧾 Create Bill</button>
-        <button class="btn" id="qaAddCustomer">👤 Add Customer</button>
+        <button class="btn" id="qaAddItem"><i class="fa-solid fa-plus"></i> Add Inventory Item</button>
+        <button class="btn" id="qaCreateBill"><i class="fa-solid fa-file-invoice-dollar"></i> Create Bill</button>
+        <button class="btn" id="qaAddCustomer"><i class="fa-solid fa-user-plus"></i> Add Customer</button>
       </div>
     </section>
 
@@ -198,7 +220,7 @@
       <div style="overflow:auto">
         <table>
           <thead>
-            <tr><th>Item Name</th><th>Description</th><th>Category</th><th>Actual Buy Price</th><th>Buy Discount</th><th>Net Buy Price</th><th>Sell Margin</th><th>Selling Price</th><th>Stock</th><th>Actions</th></tr>
+            <tr><th>Item Name</th><th>Description</th><th>Category</th><th>MRP (Actual)</th><th>Buy Discount</th><th>Net Buy Price</th><th>Sell Discount (on MRP)</th><th>Selling Price</th><th>Stock</th><th>Actions</th></tr>
           </thead>
           <tbody id="inventoryTableBody"></tbody>
         </table>
@@ -220,7 +242,7 @@
         </div>
 
         <div class="card sticky">
-          <h3>🛒 Cart</h3>
+          <h3><i class="fa-solid fa-cart-shopping"></i> Cart</h3>
           <div id="cartList"></div>
           <div class="totals">
             <p><span>Subtotal</span><strong id="subTotal">₹ 0.00</strong></p>
@@ -230,23 +252,31 @@
             <p class="grand"><span>Grand Total</span><strong id="grandTotal">₹ 0.00</strong></p>
           </div>
           <hr>
-          <h4>👤 Customer</h4>
-          <select id="savedCustomerSelect">
-            <option value="">Select Saved Customer</option>
-          </select>
-          <div class="search-wrap">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor"/><path d="M20 20l-4-4" stroke="currentColor"/></svg>
-            <input id="customerSearch" placeholder="Search saved customer" />
+          <h4><i class="fa-solid fa-user"></i> Customer</h4>
+          <div class="customer-tabs">
+            <button type="button" class="tab-chip active" data-customer-tab="regular">Regular</button>
+            <button type="button" class="tab-chip" data-customer-tab="saved">Saved Customer</button>
           </div>
-          <input id="walkInName" placeholder="Walk-in Customer Name" />
-          <input id="walkInPhone" placeholder="Phone Number" />
-          <textarea id="walkInAddress" placeholder="Address"></textarea>
-          <h4>💳 Payment</h4>
+          <div id="regularCustomerPane" class="customer-pane active">
+            <input id="walkInName" placeholder="Walk-in Customer Name" />
+            <input id="walkInPhone" placeholder="Phone Number" />
+            <textarea id="walkInAddress" placeholder="Address"></textarea>
+          </div>
+          <div id="savedCustomerPane" class="customer-pane">
+            <select id="savedCustomerSelect">
+              <option value="">Select Saved Customer</option>
+            </select>
+            <div class="search-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor"/><path d="M20 20l-4-4" stroke="currentColor"/></svg>
+              <input id="customerSearch" placeholder="Search saved customer" />
+            </div>
+          </div>
+          <h4><i class="fa-solid fa-wallet"></i> Payment</h4>
           <div class="radio-group">
             <label><input type="radio" name="paymentMode" value="Cash" checked /> Cash</label>
             <label><input type="radio" name="paymentMode" value="Online" /> Online</label>
           </div>
-          <button class="btn success" style="width:100%;margin-top:12px" id="proceedInvoice">Proceed to Invoice</button>
+          <button class="btn success" style="width:100%;margin-top:12px" id="proceedInvoice"><i class="fa-solid fa-file-circle-check"></i> Proceed to Invoice</button>
         </div>
       </div>
     </section>
@@ -265,7 +295,9 @@
     <section id="invoicing" class="panel">
       <h2>Invoicing</h2>
       <div class="row no-print" style="margin-bottom:8px">
-        <input id="companyName" value="Smart Inventory Pro Pvt. Ltd." style="max-width:360px" />
+        <input id="companyName" value="Smart Inventory Pro Pvt. Ltd." style="max-width:280px" />
+        <input id="shopAddress" value="12 Market Road, Kolkata, West Bengal" style="max-width:360px" />
+        <input id="shopContact" value="+91 98765 43210" style="max-width:220px" />
         <button class="btn" id="printBtn">Print / Download PDF</button>
       </div>
       <div id="printableInvoice" class="invoice-box"></div>
@@ -278,19 +310,23 @@
   <form id="itemForm" class="form-grid">
     <input class="full" name="name" placeholder="Item Name" required />
     <textarea class="full" name="description" placeholder="Description" required></textarea>
-    <input name="category" placeholder="Category" required />
-    <input type="number" step="0.01" min="0" name="actualBuyingPrice" placeholder="Actual Buying Price" required />
+    <select name="category" id="itemCategorySelect" required>
+      <option value="">Select Category</option>
+      <option value="__new__">+ Create New Category</option>
+    </select>
+    <input type="text" name="newCategory" id="newCategoryInput" placeholder="Create New Category" style="display:none" />
+    <input type="number" step="0.01" min="0" name="actualBuyingPrice" placeholder="MRP / Actual Price" required />
     <select name="buyingDiscountType">
       <option value="percent">Buying Discount %</option>
       <option value="fixed">Buying Discount ₹</option>
     </select>
     <input type="number" step="0.01" min="0" name="buyingDiscountValue" placeholder="Buying Discount Value" value="0" required />
     <input type="number" step="0.01" min="0" name="buyingPrice" placeholder="Net Buying Price (Auto)" readonly required />
-    <select name="sellingProfitType">
-      <option value="percent">Selling Margin %</option>
-      <option value="fixed">Selling Margin ₹</option>
+    <select name="sellingDiscountType">
+      <option value="percent">Selling Discount % (on MRP)</option>
+      <option value="fixed">Selling Discount ₹ (on MRP)</option>
     </select>
-    <input type="number" step="0.01" min="0" name="sellingProfitValue" placeholder="Selling Margin Value" value="0" required />
+    <input type="number" step="0.01" min="0" name="sellingDiscountValue" placeholder="Selling Discount Value" value="0" required />
     <input type="number" step="0.01" min="0" name="sellingPrice" placeholder="Selling Price (Auto)" readonly required />
     <input type="number" min="0" name="stock" placeholder="Stock Quantity" required />
     <div class="full row"><button class="btn" type="submit">Save</button><button class="btn ghost" type="button" data-close="itemModal">Cancel</button></div>
@@ -342,9 +378,9 @@
     if (!db.load(DB_KEYS.inventory).length) {
       // @Mokardder - Update inventory data to DB here
       db.save(DB_KEYS.inventory, [
-        { id: uid(), name:'Rice 5kg', description:'Premium basmati rice', category:'Grocery', actualBuyingPrice:400, buyingDiscountType:'fixed', buyingDiscountValue:20, buyingPrice:380, sellingProfitType:'fixed', sellingProfitValue:70, sellingPrice:450, stock:20 },
-        { id: uid(), name:'Sunflower Oil', description:'1 litre bottle', category:'Grocery', actualBuyingPrice:130, buyingDiscountType:'fixed', buyingDiscountValue:10, buyingPrice:120, sellingProfitType:'fixed', sellingProfitValue:35, sellingPrice:155, stock:35 },
-        { id: uid(), name:'Dish Soap', description:'Lemon fragrance', category:'Home Care', actualBuyingPrice:40, buyingDiscountType:'fixed', buyingDiscountValue:2, buyingPrice:38, sellingProfitType:'fixed', sellingProfitValue:17, sellingPrice:55, stock:50 }
+        { id: uid(), name:'Rice 5kg', description:'Premium basmati rice', category:'Grocery', actualBuyingPrice:400, buyingDiscountType:'fixed', buyingDiscountValue:20, buyingPrice:380, sellingDiscountType:'fixed', sellingDiscountValue:70, sellingPrice:450, stock:20 },
+        { id: uid(), name:'Sunflower Oil', description:'1 litre bottle', category:'Grocery', actualBuyingPrice:130, buyingDiscountType:'fixed', buyingDiscountValue:10, buyingPrice:120, sellingDiscountType:'fixed', sellingDiscountValue:35, sellingPrice:155, stock:35 },
+        { id: uid(), name:'Dish Soap', description:'Lemon fragrance', category:'Home Care', actualBuyingPrice:40, buyingDiscountType:'fixed', buyingDiscountValue:2, buyingPrice:38, sellingDiscountType:'fixed', sellingDiscountValue:17, sellingPrice:55, stock:50 }
       ]);
     }
   }
@@ -386,12 +422,10 @@
     const buyDiscount = computeDiscount(actualBuyingPrice, buyingDiscountType, buyingDiscountValue);
     const buyingPrice = Math.max(0, actualBuyingPrice - buyDiscount);
 
-    const sellingProfitType = rec.sellingProfitType || 'fixed';
-    const sellingProfitValue = Math.max(0, +rec.sellingProfitValue || 0);
-    const sellingMargin = sellingProfitType === 'percent'
-      ? buyingPrice * Math.min(sellingProfitValue, 1000) / 100
-      : sellingProfitValue;
-    const sellingPrice = Math.max(0, buyingPrice + sellingMargin);
+    const sellingDiscountType = rec.sellingDiscountType || rec.sellingProfitType || 'fixed';
+    const sellingDiscountValue = Math.max(0, +rec.sellingDiscountValue || +rec.sellingProfitValue || 0);
+    const sellingDiscountAmount = computeDiscount(actualBuyingPrice, sellingDiscountType, sellingDiscountValue);
+    const sellingPrice = Math.max(0, actualBuyingPrice - sellingDiscountAmount);
 
     return {
       ...rec,
@@ -399,8 +433,9 @@
       buyingDiscountType,
       buyingDiscountValue,
       buyingPrice,
-      sellingProfitType,
-      sellingProfitValue,
+      sellingDiscountType,
+      sellingDiscountValue,
+      sellingDiscountAmount,
       sellingPrice,
       stock: Math.max(0, +rec.stock || 0)
     };
@@ -451,7 +486,7 @@
     byId('inventoryTableBody').innerHTML = rows.map(i => `
       <tr>
         <td>${i.name}</td><td>${i.description}</td><td><span class="pill">${i.category}</span></td>
-        <td>${inr(i.actualBuyingPrice)}</td><td>${i.buyingDiscountType === 'percent' ? i.buyingDiscountValue + '%' : inr(i.buyingDiscountValue)}</td><td>${inr(i.buyingPrice)}</td><td>${i.sellingProfitType === 'percent' ? i.sellingProfitValue + '%' : inr(i.sellingProfitValue)}</td><td>${inr(i.sellingPrice)}</td><td>${i.stock}</td>
+        <td>${inr(i.actualBuyingPrice)}</td><td>${i.buyingDiscountType === 'percent' ? i.buyingDiscountValue + '%' : inr(i.buyingDiscountValue)}</td><td>${inr(i.buyingPrice)}</td><td>${i.sellingDiscountType === 'percent' ? i.sellingDiscountValue + '%' : inr(i.sellingDiscountValue)}</td><td>${inr(i.sellingPrice)}</td><td>${i.stock}</td>
         <td><div class="actions"><button class="btn ghost" onclick="openItemModal('${i.id}')">Edit</button><button class="btn danger" onclick="deleteItem('${i.id}')">Delete</button></div></td>
       </tr>
     `).join('') || `<tr><td colspan="10" class="muted">No inventory records found.</td></tr>`;
@@ -464,8 +499,8 @@
       actualBuyingPrice: form.elements.actualBuyingPrice.value,
       buyingDiscountType: form.elements.buyingDiscountType.value,
       buyingDiscountValue: form.elements.buyingDiscountValue.value,
-      sellingProfitType: form.elements.sellingProfitType.value,
-      sellingProfitValue: form.elements.sellingProfitValue.value,
+      sellingDiscountType: form.elements.sellingDiscountType.value,
+      sellingDiscountValue: form.elements.sellingDiscountValue.value,
       stock: form.elements.stock.value
     };
     const calc = computeInventoryPricing(rec);
@@ -473,14 +508,37 @@
     form.elements.sellingPrice.value = calc.sellingPrice.toFixed(2);
   }
 
+
+  function populateCategoryOptions(selected = '') {
+    const select = byId('itemCategorySelect');
+    const categories = [...new Set(state.inventory.map(i => i.category).filter(Boolean))].sort();
+    select.innerHTML = '<option value="">Select Category</option>' + categories.map(c => `<option value="${c}">${c}</option>`).join('') + '<option value="__new__">+ Create New Category</option>';
+    if (selected && categories.includes(selected)) select.value = selected;
+    else if (selected) {
+      select.value = '__new__';
+      byId('newCategoryInput').style.display = 'block';
+      byId('newCategoryInput').value = selected;
+    }
+  }
+
+  function toggleNewCategoryInput() {
+    const showNew = byId('itemCategorySelect').value === '__new__';
+    byId('newCategoryInput').style.display = showNew ? 'block' : 'none';
+    if (!showNew) byId('newCategoryInput').value = '';
+  }
+
   function openItemModal(id = null) {
     state.editingItemId = id;
     const m = byId('itemModal'); const f = byId('itemForm');
     byId('itemModalTitle').textContent = id ? 'Edit Inventory Item' : 'Add Inventory Item';
     f.reset();
+    populateCategoryOptions();
+    toggleNewCategoryInput();
     if (id) {
       const p = state.inventory.find(x => x.id === id);
       Object.entries(p).forEach(([k,v]) => f.elements[k] && (f.elements[k].value = v));
+      populateCategoryOptions(p.category);
+      toggleNewCategoryInput();
     }
     updateItemFormComputedPrices();
     m.classList.add('active');
@@ -512,6 +570,7 @@
     byId('productModalBody').innerHTML = `
       <p><strong>${p.name}</strong></p>
       <p class="muted">${p.description}</p>
+      <p>MRP: ${inr(p.actualBuyingPrice || p.sellingPrice)} | Selling: ${inr(p.sellingPrice)}</p>
       <p>Available stock: ${p.stock}</p>
       <input id="addQty" type="number" min="1" max="${p.stock}" value="1" />
       <div class="row" style="margin-top:10px"><button class="btn" onclick="addToCart()">Add to Cart</button><button class="btn ghost" onclick="closeModal('productModal')">Cancel</button></div>
@@ -527,9 +586,11 @@
     if (existing) {
       if (existing.quantity + qty > p.stock) return showToast('Stock is insufficient');
       existing.quantity += qty;
+      updateCartDiscount(existing.id, existing.discountValue || 0);
     } else {
-      state.currentCart.push({ id: p.id, name: p.name, price: p.sellingPrice, quantity: qty, discount: 0 });
+      state.currentCart.push({ id: p.id, name: p.name, price: p.actualBuyingPrice || p.sellingPrice, quantity: qty, discountType:'fixed', discountValue:0, discount:0, inventoryDiscount: p.sellingDiscountAmount || 0, mrp: p.actualBuyingPrice || p.sellingPrice });
     }
+    updateCartDiscount(p.id, state.currentCart.find(c => c.id === p.id).discountValue || 0);
     closeModal('productModal'); renderCart(); showToast('Added to cart');
   }
 
@@ -540,7 +601,8 @@
         <strong>${c.name}</strong>
         <input type="number" min="1" value="${c.quantity}" onchange="updateCartQty('${c.id}', this.value)" />
         <span>${inr(c.price)}</span>
-        <input type="number" min="0" value="${c.discount}" onchange="updateCartDiscount('${c.id}', this.value)" title="Per-item discount" />
+        <span class='muted'>${inr(c.inventoryDiscount || 0)} base</span>
+        <span class="row"><select onchange="updateCartDiscountType('${c.id}', this.value)" style="width:58px"><option value="fixed" ${c.discountType==='fixed'?'selected':''}>₹</option><option value="percent" ${c.discountType==='percent'?'selected':''}>%</option></select><input type="number" min="0" value="${c.discountValue || 0}" onchange="updateCartDiscount('${c.id}', this.value)" title="Per-item discount" style="width:70px" /></span>
         <button class="btn danger" onclick="removeCartItem('${c.id}')">X</button>
       </div>
     `).join('') || '<p class="muted">Cart is empty.</p>';
@@ -552,12 +614,23 @@
     const inv = state.inventory.find(i => i.id === id);
     const q = +value;
     if (!q || q < 1 || q > inv.stock) return showToast('Stock is insufficient');
-    item.quantity = q; renderCart();
+    item.quantity = q; updateCartDiscount(id, item.discountValue || 0); renderCart();
   }
+  function updateCartDiscountType(id, type) {
+    const item = state.currentCart.find(c => c.id === id);
+    item.discountType = type;
+    updateCartDiscount(id, item.discountValue || 0);
+  }
+
   function updateCartDiscount(id, value) {
     const item = state.currentCart.find(c => c.id === id);
+    item.discountValue = Math.max(0, +value || 0);
     const maxLine = item.price * item.quantity;
-    item.discount = Math.min(Math.max(0, +value || 0), maxLine);
+    const manualDiscount = item.discountType === 'percent'
+      ? Math.min(maxLine, maxLine * Math.min(item.discountValue, 100) / 100)
+      : Math.min(maxLine, item.discountValue);
+    const baseDiscount = (item.inventoryDiscount || 0) * item.quantity;
+    item.discount = Math.min(maxLine, manualDiscount + baseDiscount);
     calculateTotals();
   }
   function removeCartItem(id) {
@@ -624,6 +697,14 @@
     byId('walkInName').value = customer.name;
     byId('walkInPhone').value = customer.phone;
     byId('walkInAddress').value = customer.address;
+    setCustomerTab('regular');
+  }
+
+
+  function setCustomerTab(tab) {
+    document.querySelectorAll('.tab-chip').forEach(btn => btn.classList.toggle('active', btn.dataset.customerTab === tab));
+    byId('regularCustomerPane').classList.toggle('active', tab === 'regular');
+    byId('savedCustomerPane').classList.toggle('active', tab === 'saved');
   }
 
   function proceedInvoice() {
@@ -717,23 +798,26 @@
     ].join('');
 
     byId('printableInvoice').innerHTML = `
-      <div class="invoice-head">
+      <div class="invoice-header-print"><div class="invoice-head">
         <div>
           <div class="logo-ph">Logo</div>
           <h2 style="margin:8px 0 0">${byId('companyName').value}</h2>
           <small class="muted">Professional Billing Invoice</small>
+          <p class="muted" style="margin:4px 0 0">${byId('shopAddress').value}</p>
+          <p class="muted" style="margin:2px 0 0">Contact: ${byId('shopContact').value}</p>
         </div>
         <div style="text-align:right">
           <p><strong>Invoice #:</strong> ${inv.id}</p>
           <p><strong>Date:</strong> ${new Date(inv.date).toLocaleString('en-IN')}</p>
           <p><strong>Payment:</strong> ${inv.paymentMode}</p>
         </div>
-      </div>
+      </div></div>
+      <div class="invoice-body-print">
       <p><strong>Customer:</strong> ${inv.customer.name} | ${inv.customer.phone}</p>
       <p><strong>Address:</strong> ${inv.customer.address}</p>
       <table>
         <thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Discount</th><th>Total</th></tr></thead>
-        <tbody>${inv.items.map(i => `<tr><td>${i.name}</td><td>${i.quantity}</td><td>${inr(i.price)}</td><td>${inr(i.discount)}</td><td>${inr(i.quantity*i.price - i.discount)}</td></tr>`).join('')}</tbody>
+        <tbody>${inv.items.map(i => `<tr><td>${i.name}</td><td>${i.quantity}</td><td>${inr(i.price)}</td><td>${inr(i.discount)}${(i.inventoryDiscount||0)>0 ? `<br><small class='muted'>Incl. MRP Disc ${inr((i.inventoryDiscount||0)*i.quantity)}</small>`:''}</td><td>${inr(i.quantity*i.price - i.discount)}</td></tr>`).join('')}</tbody>
       </table>
       <div style="margin-top:10px; max-width:320px; margin-left:auto">
         <p style="display:flex;justify-content:space-between"><span>Subtotal:</span><strong>${inr(inv.subtotal)}</strong></p>
@@ -742,7 +826,10 @@
         <p style="display:flex;justify-content:space-between;font-size:1.1rem"><span>Total:</span><strong>${inr(inv.grandTotal)}</strong></p>
       </div>
       <p><strong>Amount in Words:</strong> ${numberToWordsIndian(inv.grandTotal)}</p>
-      <p style="margin-top:30px; text-align:right">_________________<br><small>Authorized Signature</small></p>
+      </div>
+      <div class="invoice-footer-print">
+      <p style="text-align:right">_________________<br><small>Authorized Signature</small></p>
+      </div>
     `;
   }
 
@@ -762,7 +849,8 @@
 
   byId('inventorySearch').addEventListener('input', renderInventory);
   byId('addItemBtn').addEventListener('click', () => openItemModal());
-  ['actualBuyingPrice','buyingDiscountType','buyingDiscountValue','sellingProfitType','sellingProfitValue'].forEach(name => {
+  byId('itemCategorySelect').addEventListener('change', toggleNewCategoryInput);
+  ['actualBuyingPrice','buyingDiscountType','buyingDiscountValue','sellingDiscountType','sellingDiscountValue'].forEach(name => {
     byId('itemForm').elements[name].addEventListener('input', updateItemFormComputedPrices);
     byId('itemForm').elements[name].addEventListener('change', updateItemFormComputedPrices);
   });
@@ -770,11 +858,12 @@
     e.preventDefault();
     const fd = new FormData(e.target);
     const data = Object.fromEntries(fd.entries());
+    const chosenCategory = data.category === '__new__' ? (data.newCategory || '').trim() : (data.category || '').trim();
     let item = computeInventoryPricing({
       id: state.editingItemId || uid(),
-      name: data.name.trim(), description: data.description.trim(), category: data.category.trim(),
+      name: data.name.trim(), description: data.description.trim(), category: chosenCategory,
       actualBuyingPrice:+data.actualBuyingPrice, buyingDiscountType:data.buyingDiscountType, buyingDiscountValue:+data.buyingDiscountValue,
-      sellingProfitType:data.sellingProfitType, sellingProfitValue:+data.sellingProfitValue, stock:+data.stock
+      sellingDiscountType:data.sellingDiscountType, sellingDiscountValue:+data.sellingDiscountValue, stock:+data.stock
     });
     if (!item.name || !item.category || item.stock < 0) return showToast('Please fill valid values');
     if (state.editingItemId) state.inventory = state.inventory.map(i => i.id === item.id ? item : i);
@@ -805,6 +894,10 @@
 
   byId('printBtn').addEventListener('click', () => window.print());
   byId('companyName').addEventListener('input', renderInvoice);
+  byId('shopAddress').addEventListener('input', renderInvoice);
+  byId('shopContact').addEventListener('input', renderInvoice);
+  byId('sidebarToggle').addEventListener('click', () => document.querySelector('.app').classList.toggle('sidebar-collapsed'));
+  document.querySelectorAll('.tab-chip').forEach(btn => btn.addEventListener('click', () => setCustomerTab(btn.dataset.customerTab)));
   byId('qaAddItem').addEventListener('click', () => { switchTab('inventory'); openItemModal(); });
   byId('qaCreateBill').addEventListener('click', () => switchTab('billing'));
   byId('qaAddCustomer').addEventListener('click', () => { switchTab('customers'); openCustomerModal(); });
@@ -817,6 +910,7 @@
   window.openProductModal = openProductModal;
   window.addToCart = addToCart;
   window.updateCartQty = updateCartQty;
+  window.updateCartDiscountType = updateCartDiscountType;
   window.updateCartDiscount = updateCartDiscount;
   window.removeCartItem = removeCartItem;
   window.closeModal = closeModal;
