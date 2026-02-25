@@ -151,8 +151,8 @@
     .form-grid .full { grid-column: 1/-1; }
     .toast-wrap { position: fixed; right: 16px; top: 16px; display: grid; gap: 8px; z-index: 20; }
     .toast { background: #0f172a; color: #fff; padding: 10px 12px; border-radius: 10px; box-shadow: var(--shadow); }
-    .invoice-box { background: #fff; border:2px solid #cbd5e1; border-radius: 12px; padding: 18px; box-shadow: var(--shadow); min-height: calc(100vh - 140px); width: 100%; display:flex; flex-direction:column; position: relative; }
-    .invoice-box::before { content:""; position:absolute; inset:8px; border:1px dashed #94a3b8; border-radius:10px; pointer-events:none; }
+    .invoice-box { background: #fff; border:none; border-radius: 0; padding: 8px; box-shadow: none; min-height: calc(100vh - 140px); width: 100%; display:flex; flex-direction:column; position: relative; }
+    
     .invoice-box > * { position:relative; z-index:1; }
     #invoicing.panel.active { display: flex; flex-direction: column; min-height: calc(100vh - 40px); }
     #invoicing .invoice-box { flex: 1; min-height: calc(100vh - 180px); }
@@ -163,6 +163,7 @@
     .muted { color: var(--muted); }
     .bill-to-box { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
     .bill-to-box p { margin: 4px 0; font-size: .88rem; }
+    .invoice-header-print, .invoice-body-print, .invoice-footer-print { border:none; border-radius:0; padding:6px 0; background:#fff; }
     @media (max-width: 1024px) {
       .billing-wrap { grid-template-columns: 1fr; }
       .sticky { position: static; }
@@ -174,14 +175,14 @@
       .cart-item { grid-template-columns: 1fr; border:1px solid var(--border); border-radius: 10px; padding:8px; }
     }
     @media print {
-      @page { size: A4; margin: 10mm; }
-      html, body { width: 210mm; min-height: 297mm; background:#fff; margin:0; }
+      @page { size: A4; margin: 0; }
+      html, body { width: 210mm; min-height: 297mm; background:#fff; margin:0; padding:0; }
       body * { visibility: hidden; }
       .app { display:block !important; grid-template-columns: 1fr !important; }
       .main { padding: 0 !important; margin: 0 !important; }
       #invoicing.panel { display:block !important; }
       #printableInvoice, #printableInvoice * { visibility: visible; }
-      #printableInvoice { position: static; width: 100%; min-height: 277mm; box-shadow:none; border:1px solid #94a3b8; display:flex; flex-direction:column; overflow: visible; margin:0; }
+      #printableInvoice { position: static; width: 100%; min-height: 297mm; box-shadow:none; border:none; display:flex; flex-direction:column; overflow: visible; margin:0; padding: 0; }
       #printableInvoice::before { display:none; }
       .invoice-header-print { position: static; padding: 8px 0; }
       .invoice-body-print { margin-top: 6px; flex:1; }
