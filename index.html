@@ -165,7 +165,7 @@
     .bill-to-box p { margin: 4px 0; font-size: .88rem; }
     .invoice-header-print, .invoice-body-print, .invoice-footer-print { border:none; border-radius:0; padding:6px 0; background:#fff; }
     .invoice-body-print table { margin-top: 10px; }
-    .invoice-inner { padding: 0 5%; }
+    .invoice-inner { padding: 0 5%; display:flex; flex-direction:column; min-height: 100%; }
     @media (max-width: 1024px) {
       .billing-wrap { grid-template-columns: 1fr; }
       .sticky { position: static; }
@@ -185,6 +185,7 @@
       #invoicing.panel { display:block !important; }
       #printableInvoice, #printableInvoice * { visibility: visible; }
       #printableInvoice { position: static; width: 100%; min-height: 297mm; box-shadow:none; border:none; display:flex; flex-direction:column; overflow: visible; margin:0; padding: 0; }
+      .invoice-inner { min-height: 297mm; }
       #printableInvoice::before { display:none; }
       .invoice-header-print { position: static; padding: 8px 0; }
       .invoice-body-print { margin-top: 6px; flex:1; }
@@ -845,7 +846,7 @@
       </div>
       <p><strong>Amount in Words:</strong> ${numberToWordsIndian(inv.grandTotal)}</p>
       <p class="muted" style="font-size:.82rem; border-top:1px solid var(--border); padding-top:8px; margin-top:8px;">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</p>
-      <p style="text-align:center; font-weight:600; margin:8px 0 4px;">Thank you for you purchase, Visit Again</p>
+      <p style="text-align:center; font-weight:600; margin:8px 0 4px;">Thank you for your business, Visit Again</p>
       <p style="text-align:right">_________________<br><small>Authorized Signature</small></p>
       </div>
       </div>
