@@ -146,6 +146,7 @@
     .modal-content {
       width: min(680px, 94vw); background: #fff; border-radius: 14px; box-shadow: var(--shadow); padding: 16px;
     }
+    .dialog-note { margin: -4px 0 12px; text-align: center; font-size: .78rem; color: var(--muted); letter-spacing: .01em; }
     .form-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
     .form-grid .full { grid-column: 1/-1; }
     .toast-wrap { position: fixed; right: 16px; top: 16px; display: grid; gap: 8px; z-index: 20; }
@@ -170,9 +171,9 @@
       body * { visibility: hidden; }
       #printableInvoice, #printableInvoice * { visibility: visible; }
       #printableInvoice { position: absolute; left: 0; top: 0; width: 100%; min-height: 100vh; box-shadow:none; border:none; display:flex; flex-direction:column; }
-      .invoice-header-print { position: fixed; top: 0; left: 0; right: 0; background:#fff; padding: 10px 0; }
-      .invoice-body-print { margin-top: 130px; }
-      .invoice-footer-print { margin-top: auto; position: fixed; bottom: 15px; left: 0; right: 0; background:#fff; border-top:1px dashed #cbd5e1; padding-top: 10px; }
+      .invoice-header-print { position: static; background:#fff; padding: 10px 0; }
+      .invoice-body-print { margin-top: 8px; flex: 1; }
+      .invoice-footer-print { margin-top: auto; background:#fff; border-top:1px dashed #cbd5e1; padding-top: 10px; }
       .no-print { display: none !important; }
     }
   </style>
@@ -307,6 +308,7 @@
 
 <div class="modal" id="itemModal"><div class="modal-content">
   <h3 id="itemModalTitle">Add Inventory Item</h3>
+  <p id="itemModalAlert" class="dialog-note">Create a new inventory item record.</p>
   <form id="itemForm" class="form-grid">
     <input class="full" name="name" placeholder="Item Name" required />
     <textarea class="full" name="description" placeholder="Description" required></textarea>
@@ -531,6 +533,7 @@
     state.editingItemId = id;
     const m = byId('itemModal'); const f = byId('itemForm');
     byId('itemModalTitle').textContent = id ? 'Edit Inventory Item' : 'Add Inventory Item';
+    byId('itemModalAlert').textContent = id ? 'Editing inventory item details (please verify values before saving).' : 'Create a new inventory item record.';
     f.reset();
     populateCategoryOptions();
     toggleNewCategoryInput();
