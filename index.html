@@ -161,6 +161,8 @@
     .muted { color: var(--muted); }
     .bill-to-box { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
     .bill-to-box p { margin: 4px 0; font-size: .88rem; }
+    .invoice-title-print { text-align:center; font-size:1.1rem; letter-spacing:.12em; font-weight:700; margin: 6px 0 10px; }
+    .invoice-header-print, .invoice-body-print, .invoice-footer-print { border: 1px solid var(--border); border-radius: 8px; padding: 10px; background:#fff; }
     @media (max-width: 1024px) {
       .billing-wrap { grid-template-columns: 1fr; }
       .sticky { position: static; }
@@ -174,11 +176,11 @@
     @media print {
       body * { visibility: hidden; }
       #printableInvoice, #printableInvoice * { visibility: visible; }
-      #printableInvoice { position: static; width: 100%; min-height: auto; box-shadow:none; border:none; display:block; overflow: visible; }
-      .invoice-header-print { position: static; background:#fff; padding: 10px 0; }
-      .invoice-body-print { margin-top: 8px; }
-      .invoice-footer-print { margin-top: 18px; background:#fff; border-top:1px dashed #cbd5e1; padding-top: 10px; }
+      #printableInvoice { position: static; width: 100%; min-height: 100vh; box-shadow:none; border:1px solid #94a3b8; display:block; overflow: visible; padding: 8px; }
       #printableInvoice::before { display:none; }
+      .invoice-header-print { position: fixed; top: 8px; left: 8px; right: 8px; background:#fff; border:1px solid #94a3b8; border-radius:8px; }
+      .invoice-body-print { margin-top: 230px; margin-bottom: 180px; border:1px solid #94a3b8; border-radius:8px; }
+      .invoice-footer-print { position: fixed; bottom: 8px; left: 8px; right: 8px; margin-top: 0; background:#fff; border:1px solid #94a3b8; border-radius:8px; }
       .invoice-body-print table { width:100%; page-break-inside:auto; }
       .invoice-body-print tr, .invoice-body-print td, .invoice-body-print th { page-break-inside:avoid; }
       .no-print { display: none !important; }
@@ -822,6 +824,7 @@
         </div>
       </div></div>
       <div class="invoice-body-print">
+      <div class="invoice-title-print">INVOICE</div>
       <table>
         <thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Discount</th><th>Total</th></tr></thead>
         <tbody>${inv.items.map(i => `<tr><td>${i.name}</td><td>${i.quantity}</td><td>${inr(i.price)}</td><td>${inr(i.discount)}${(i.inventoryDiscount||0)>0 ? `<br><small class='muted'>Incl. MRP Disc ${inr((i.inventoryDiscount||0)*i.quantity)}</small>`:''}</td><td>${inr(i.quantity*i.price - i.discount)}</td></tr>`).join('')}</tbody>
@@ -836,7 +839,7 @@
       </div>
       <p><strong>Amount in Words:</strong> ${numberToWordsIndian(inv.grandTotal)}</p>
       <p class="muted" style="font-size:.82rem; border-top:1px solid var(--border); padding-top:8px; margin-top:8px;">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</p>
-      <p style="text-align:center; font-weight:600; margin:8px 0 4px;">Thank you for you purchase, Visit Again</p>
+      <p style="text-align:center; font-weight:600; margin:8px 0 4px;">Thank you for your Purchase, Visit Again</p>
       <p style="text-align:right">_________________<br><small>Authorized Signature</small></p>
       </div>
     `;
