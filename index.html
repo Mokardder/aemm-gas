@@ -175,10 +175,13 @@
     }
     @media print {
       @page { size: A4; margin: 10mm; }
-      html, body { width: 210mm; min-height: 297mm; background:#fff; }
+      html, body { width: 210mm; min-height: 297mm; background:#fff; margin:0; }
       body * { visibility: hidden; }
+      .app { display:block !important; grid-template-columns: 1fr !important; }
+      .main { padding: 0 !important; margin: 0 !important; }
+      #invoicing.panel { display:block !important; }
       #printableInvoice, #printableInvoice * { visibility: visible; }
-      #printableInvoice { position: static; width: 100%; min-height: 277mm; box-shadow:none; border:1px solid #94a3b8; display:flex; flex-direction:column; overflow: visible; }
+      #printableInvoice { position: static; width: 100%; min-height: 277mm; box-shadow:none; border:1px solid #94a3b8; display:flex; flex-direction:column; overflow: visible; margin:0; }
       #printableInvoice::before { display:none; }
       .invoice-header-print { position: static; padding: 8px 0; }
       .invoice-body-print { margin-top: 6px; flex:1; }
