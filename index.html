@@ -151,7 +151,9 @@
     .form-grid .full { grid-column: 1/-1; }
     .toast-wrap { position: fixed; right: 16px; top: 16px; display: grid; gap: 8px; z-index: 20; }
     .toast { background: #0f172a; color: #fff; padding: 10px 12px; border-radius: 10px; box-shadow: var(--shadow); }
-    .invoice-box { background: #fff; border:1px solid var(--border); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); min-height: calc(100vh - 140px); width: 100%; display:flex; flex-direction:column; }
+    .invoice-box { background: #fff; border:2px solid #cbd5e1; border-radius: 12px; padding: 18px; box-shadow: var(--shadow); min-height: calc(100vh - 140px); width: 100%; display:flex; flex-direction:column; position: relative; }
+    .invoice-box::before { content:""; position:absolute; inset:8px; border:1px dashed #94a3b8; border-radius:10px; pointer-events:none; }
+    .invoice-box > * { position:relative; z-index:1; }
     #invoicing.panel.active { display: flex; flex-direction: column; min-height: calc(100vh - 40px); }
     #invoicing .invoice-box { flex: 1; min-height: calc(100vh - 180px); }
     .invoice-head { display:flex; justify-content: space-between; gap: 12px; border-bottom:1px dashed var(--border); padding-bottom: 12px; margin-bottom: 12px; }
@@ -837,6 +839,8 @@
         <p style="display:flex;justify-content:space-between;font-size:1.1rem"><span>Total:</span><strong>${inr(inv.grandTotal)}</strong></p>
       </div>
       <p><strong>Amount in Words:</strong> ${numberToWordsIndian(inv.grandTotal)}</p>
+      <p class="muted" style="font-size:.82rem; border-top:1px solid var(--border); padding-top:8px; margin-top:8px;">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</p>
+      <p style="text-align:center; font-weight:600; margin:8px 0 4px;">Thank you for you purchase, Visit Again</p>
       <p style="text-align:right">_________________<br><small>Authorized Signature</small></p>
       </div>
     `;
