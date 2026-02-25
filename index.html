@@ -186,11 +186,11 @@
       #invoicing.panel { display:block !important; }
       #printableInvoice, #printableInvoice * { visibility: visible; }
       #printableInvoice { position: static; width: 210mm; min-height: 297mm; box-shadow:none; border:1px solid #94a3b8; display:flex; flex-direction:column; overflow: hidden; margin:0; padding: 0; }
-      .invoice-inner { min-height: 297mm; width: 100%; }
+      .invoice-inner { min-height: auto; width: 100%; }
       #printableInvoice::before { display:none; }
       .invoice-header-print { position: static; padding: 8px 0; }
-      .invoice-body-print { margin-top: 6px; flex:1; }
-      .invoice-footer-print { margin-top: auto; border-top:1px dashed #cbd5e1; padding-top: 6px; break-inside: avoid-page; page-break-inside: avoid; font-size: .94rem; line-height: 1.25; }
+      .invoice-body-print { margin-top: 6px; padding-bottom: 42mm; }
+      .invoice-footer-print { position: fixed; left: 5%; right: 5%; bottom: 6mm; margin-top: 0; border-top:1px dashed #cbd5e1; padding-top: 6px; break-inside: avoid-page; page-break-inside: avoid; font-size: .94rem; line-height: 1.25; background:#fff; }
       .invoice-body-print table { width:100%; page-break-inside:auto; }
       .invoice-body-print tr, .invoice-body-print td, .invoice-body-print th { page-break-inside:avoid; }
       .no-print { display: none !important; }
