@@ -134,7 +134,9 @@
     .form-grid .full { grid-column: 1/-1; }
     .toast-wrap { position: fixed; right: 16px; top: 16px; display: grid; gap: 8px; z-index: 20; }
     .toast { background: #0f172a; color: #fff; padding: 10px 12px; border-radius: 10px; box-shadow: var(--shadow); }
-    .invoice-box { background: #fff; border:1px solid var(--border); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); min-height: calc(100vh - 140px); }
+    .invoice-box { background: #fff; border:1px solid var(--border); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); min-height: calc(100vh - 140px); width: 100%; }
+    #invoicing.panel.active { display: flex; flex-direction: column; min-height: calc(100vh - 40px); }
+    #invoicing .invoice-box { flex: 1; min-height: calc(100vh - 180px); }
     .invoice-head { display:flex; justify-content: space-between; gap: 12px; border-bottom:1px dashed var(--border); padding-bottom: 12px; margin-bottom: 12px; }
     .logo-ph { width:60px; height:60px; border:2px dashed #cbd5e1; border-radius: 10px; display:grid; place-items:center; color:#64748b; }
     .muted { color: var(--muted); }
@@ -705,6 +707,15 @@
   function renderInvoice() {
     const inv = state.currentInvoice || state.bills[0];
     if (!inv) return byId('printableInvoice').innerHTML = '<p class="muted">No invoice generated yet.</p>';
+    const itemDiscount = inv.itemLevelDiscount || 0;
+    const billDiscount = inv.billDiscount || 0;
+    const totalDiscount = inv.discount || 0;
+    const discountDetails = [
+      itemDiscount > 0 ? `<p style="display:flex;justify-content:space-between"><span>Item Discount:</span><strong>${inr(itemDiscount)}</strong></p>` : '',
+      billDiscount > 0 ? `<p style="display:flex;justify-content:space-between"><span>Bill Discount (${inv.billDiscountType === 'percent' ? (inv.billDiscountValue + '%') : '₹'}):</span><strong>${inr(billDiscount)}</strong></p>` : '',
+      totalDiscount > 0 ? `<p style="display:flex;justify-content:space-between"><span>Total Discount:</span><strong>${inr(totalDiscount)}</strong></p>` : ''
+    ].join('');
+
     byId('printableInvoice').innerHTML = `
       <div class="invoice-head">
         <div>
@@ -726,9 +737,7 @@
       </table>
       <div style="margin-top:10px; max-width:320px; margin-left:auto">
         <p style="display:flex;justify-content:space-between"><span>Subtotal:</span><strong>${inr(inv.subtotal)}</strong></p>
-        <p style="display:flex;justify-content:space-between"><span>Item Discount:</span><strong>${inr(inv.itemLevelDiscount || 0)}</strong></p>
-        <p style="display:flex;justify-content:space-between"><span>Bill Discount (${inv.billDiscountType === 'percent' ? (inv.billDiscountValue + '%') : '₹'}):</span><strong>${inr(inv.billDiscount || 0)}</strong></p>
-        <p style="display:flex;justify-content:space-between"><span>Total Discount:</span><strong>${inr(inv.discount)}</strong></p>
+        ${discountDetails}
         <p style="display:flex;justify-content:space-between"><span>GST (${inv.gstPercent}%):</span><strong>${inr(inv.gst)}</strong></p>
         <p style="display:flex;justify-content:space-between;font-size:1.1rem"><span>Total:</span><strong>${inr(inv.grandTotal)}</strong></p>
       </div>
