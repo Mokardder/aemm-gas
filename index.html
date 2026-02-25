@@ -196,7 +196,7 @@
       <div style="overflow:auto">
         <table>
           <thead>
-            <tr><th>Item Name</th><th>Description</th><th>Category</th><th>Buying Price</th><th>Selling Price</th><th>Discounted Buying</th><th>Stock</th><th>Actions</th></tr>
+            <tr><th>Item Name</th><th>Description</th><th>Category</th><th>Actual Buy Price</th><th>Buy Discount</th><th>Net Buy Price</th><th>Sell Margin</th><th>Selling Price</th><th>Stock</th><th>Actions</th></tr>
           </thead>
           <tbody id="inventoryTableBody"></tbody>
         </table>
@@ -277,9 +277,19 @@
     <input class="full" name="name" placeholder="Item Name" required />
     <textarea class="full" name="description" placeholder="Description" required></textarea>
     <input name="category" placeholder="Category" required />
-    <input type="number" step="0.01" min="0" name="buyingPrice" placeholder="Buying Price" required />
-    <input type="number" step="0.01" min="0" name="sellingPrice" placeholder="Selling Price" required />
-    <input type="number" step="0.01" min="0" name="discountedBuying" placeholder="Discounted Buying Option" required />
+    <input type="number" step="0.01" min="0" name="actualBuyingPrice" placeholder="Actual Buying Price" required />
+    <select name="buyingDiscountType">
+      <option value="percent">Buying Discount %</option>
+      <option value="fixed">Buying Discount ₹</option>
+    </select>
+    <input type="number" step="0.01" min="0" name="buyingDiscountValue" placeholder="Buying Discount Value" value="0" required />
+    <input type="number" step="0.01" min="0" name="buyingPrice" placeholder="Net Buying Price (Auto)" readonly required />
+    <select name="sellingProfitType">
+      <option value="percent">Selling Margin %</option>
+      <option value="fixed">Selling Margin ₹</option>
+    </select>
+    <input type="number" step="0.01" min="0" name="sellingProfitValue" placeholder="Selling Margin Value" value="0" required />
+    <input type="number" step="0.01" min="0" name="sellingPrice" placeholder="Selling Price (Auto)" readonly required />
     <input type="number" min="0" name="stock" placeholder="Stock Quantity" required />
     <div class="full row"><button class="btn" type="submit">Save</button><button class="btn ghost" type="button" data-close="itemModal">Cancel</button></div>
   </form>
@@ -330,9 +340,9 @@
     if (!db.load(DB_KEYS.inventory).length) {
       // @Mokardder - Update inventory data to DB here
       db.save(DB_KEYS.inventory, [
-        { id: uid(), name:'Rice 5kg', description:'Premium basmati rice', category:'Grocery', buyingPrice:380, sellingPrice:450, discountedBuying:360, stock:20 },
-        { id: uid(), name:'Sunflower Oil', description:'1 litre bottle', category:'Grocery', buyingPrice:120, sellingPrice:155, discountedBuying:110, stock:35 },
-        { id: uid(), name:'Dish Soap', description:'Lemon fragrance', category:'Home Care', buyingPrice:38, sellingPrice:55, discountedBuying:34, stock:50 }
+        { id: uid(), name:'Rice 5kg', description:'Premium basmati rice', category:'Grocery', actualBuyingPrice:400, buyingDiscountType:'fixed', buyingDiscountValue:20, buyingPrice:380, sellingProfitType:'fixed', sellingProfitValue:70, sellingPrice:450, stock:20 },
+        { id: uid(), name:'Sunflower Oil', description:'1 litre bottle', category:'Grocery', actualBuyingPrice:130, buyingDiscountType:'fixed', buyingDiscountValue:10, buyingPrice:120, sellingProfitType:'fixed', sellingProfitValue:35, sellingPrice:155, stock:35 },
+        { id: uid(), name:'Dish Soap', description:'Lemon fragrance', category:'Home Care', actualBuyingPrice:40, buyingDiscountType:'fixed', buyingDiscountValue:2, buyingPrice:38, sellingProfitType:'fixed', sellingProfitValue:17, sellingPrice:55, stock:50 }
       ]);
     }
   }
@@ -340,7 +350,7 @@
   function loadState() {
     seedData();
     // @Mokardder - Fetch inventory data from DB here
-    state.inventory = db.load(DB_KEYS.inventory, []);
+    state.inventory = db.load(DB_KEYS.inventory, []).map(computeInventoryPricing);
     // @Mokardder - Customer DB operations here
     state.customers = db.load(DB_KEYS.customers, []);
     // @Mokardder - Invoice fetch/store logic here
@@ -360,6 +370,40 @@
     db.save(DB_KEYS.bills, state.bills);
   }
 
+
+  function computeDiscount(base, type, value) {
+    const v = Math.max(0, +value || 0);
+    if (type === 'percent') return Math.min(base, base * Math.min(v, 100) / 100);
+    return Math.min(base, v);
+  }
+
+  function computeInventoryPricing(rec) {
+    const actualBuyingPrice = Math.max(0, +rec.actualBuyingPrice || +rec.buyingPrice || 0);
+    const buyingDiscountType = rec.buyingDiscountType || 'fixed';
+    const buyingDiscountValue = Math.max(0, +rec.buyingDiscountValue || 0);
+    const buyDiscount = computeDiscount(actualBuyingPrice, buyingDiscountType, buyingDiscountValue);
+    const buyingPrice = Math.max(0, actualBuyingPrice - buyDiscount);
+
+    const sellingProfitType = rec.sellingProfitType || 'fixed';
+    const sellingProfitValue = Math.max(0, +rec.sellingProfitValue || 0);
+    const sellingMargin = sellingProfitType === 'percent'
+      ? buyingPrice * Math.min(sellingProfitValue, 1000) / 100
+      : sellingProfitValue;
+    const sellingPrice = Math.max(0, buyingPrice + sellingMargin);
+
+    return {
+      ...rec,
+      actualBuyingPrice,
+      buyingDiscountType,
+      buyingDiscountValue,
+      buyingPrice,
+      sellingProfitType,
+      sellingProfitValue,
+      sellingPrice,
+      stock: Math.max(0, +rec.stock || 0)
+    };
+  }
+
   function dailyMonthlyAnnualStats() {
     const now = new Date();
     const today = now.toISOString().slice(0,10);
@@ -377,11 +421,15 @@
   }
 
   function renderDashboard() {
-    const inventoryValue = state.inventory.reduce((s, i) => s + (i.buyingPrice * i.stock), 0);
+    const inventoryValue = state.inventory.reduce((sum, i) => sum + (i.buyingPrice * i.stock), 0);
     const stats = dailyMonthlyAnnualStats();
+    const totalItemsSold = state.bills.reduce((sum, b) => sum + b.items.reduce((s, it) => s + it.quantity, 0), 0);
+    const totalSoldAmount = state.bills.reduce((sum, b) => sum + b.subtotal, 0);
     const cards = [
       ['Total Products in Inventory', state.inventory.length],
       ['Total Inventory Value (Buying)', inr(inventoryValue)],
+      ['Total Items Sold', totalItemsSold],
+      ['Sold Amount', inr(totalSoldAmount)],
       ['Total Revenue', inr(stats.revenue)],
       ['Daily Sales', inr(stats.daily)],
       ['Monthly Sales', inr(stats.monthly)],
@@ -401,10 +449,26 @@
     byId('inventoryTableBody').innerHTML = rows.map(i => `
       <tr>
         <td>${i.name}</td><td>${i.description}</td><td><span class="pill">${i.category}</span></td>
-        <td>${inr(i.buyingPrice)}</td><td>${inr(i.sellingPrice)}</td><td>${inr(i.discountedBuying)}</td><td>${i.stock}</td>
+        <td>${inr(i.actualBuyingPrice)}</td><td>${i.buyingDiscountType === 'percent' ? i.buyingDiscountValue + '%' : inr(i.buyingDiscountValue)}</td><td>${inr(i.buyingPrice)}</td><td>${i.sellingProfitType === 'percent' ? i.sellingProfitValue + '%' : inr(i.sellingProfitValue)}</td><td>${inr(i.sellingPrice)}</td><td>${i.stock}</td>
         <td><div class="actions"><button class="btn ghost" onclick="openItemModal('${i.id}')">Edit</button><button class="btn danger" onclick="deleteItem('${i.id}')">Delete</button></div></td>
       </tr>
-    `).join('') || `<tr><td colspan="8" class="muted">No inventory records found.</td></tr>`;
+    `).join('') || `<tr><td colspan="10" class="muted">No inventory records found.</td></tr>`;
+  }
+
+
+  function updateItemFormComputedPrices() {
+    const form = byId('itemForm');
+    const rec = {
+      actualBuyingPrice: form.elements.actualBuyingPrice.value,
+      buyingDiscountType: form.elements.buyingDiscountType.value,
+      buyingDiscountValue: form.elements.buyingDiscountValue.value,
+      sellingProfitType: form.elements.sellingProfitType.value,
+      sellingProfitValue: form.elements.sellingProfitValue.value,
+      stock: form.elements.stock.value
+    };
+    const calc = computeInventoryPricing(rec);
+    form.elements.buyingPrice.value = calc.buyingPrice.toFixed(2);
+    form.elements.sellingPrice.value = calc.sellingPrice.toFixed(2);
   }
 
   function openItemModal(id = null) {
@@ -416,6 +480,7 @@
       const p = state.inventory.find(x => x.id === id);
       Object.entries(p).forEach(([k,v]) => f.elements[k] && (f.elements[k].value = v));
     }
+    updateItemFormComputedPrices();
     m.classList.add('active');
   }
 
@@ -688,15 +753,20 @@
 
   byId('inventorySearch').addEventListener('input', renderInventory);
   byId('addItemBtn').addEventListener('click', () => openItemModal());
+  ['actualBuyingPrice','buyingDiscountType','buyingDiscountValue','sellingProfitType','sellingProfitValue'].forEach(name => {
+    byId('itemForm').elements[name].addEventListener('input', updateItemFormComputedPrices);
+    byId('itemForm').elements[name].addEventListener('change', updateItemFormComputedPrices);
+  });
   byId('itemForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const data = Object.fromEntries(fd.entries());
-    const item = {
+    let item = computeInventoryPricing({
       id: state.editingItemId || uid(),
       name: data.name.trim(), description: data.description.trim(), category: data.category.trim(),
-      buyingPrice:+data.buyingPrice, sellingPrice:+data.sellingPrice, discountedBuying:+data.discountedBuying, stock:+data.stock
-    };
+      actualBuyingPrice:+data.actualBuyingPrice, buyingDiscountType:data.buyingDiscountType, buyingDiscountValue:+data.buyingDiscountValue,
+      sellingProfitType:data.sellingProfitType, sellingProfitValue:+data.sellingProfitValue, stock:+data.stock
+    });
     if (!item.name || !item.category || item.stock < 0) return showToast('Please fill valid values');
     if (state.editingItemId) state.inventory = state.inventory.map(i => i.id === item.id ? item : i);
     else state.inventory.unshift(item);
