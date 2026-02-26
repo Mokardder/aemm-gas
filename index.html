@@ -147,6 +147,11 @@
       width: min(680px, 94vw); background: #fff; border-radius: 14px; box-shadow: var(--shadow); padding: 16px;
     }
     .dialog-note { margin: -4px 0 12px; text-align: center; font-size: .78rem; color: var(--muted); letter-spacing: .01em; }
+    .pricing-tabs { display:flex; gap:8px; margin-bottom: 10px; }
+    .pricing-tab-btn { border:1px solid var(--border); background:#eef2ff; color:#1e3a8a; border-radius:999px; padding:6px 10px; cursor:pointer; font-size:.82rem; }
+    .pricing-tab-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .pricing-pane { display:none; }
+    .pricing-pane.active { display:contents; }
     .form-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
     .form-grid .full { grid-column: 1/-1; }
     .toast-wrap { position: fixed; right: 16px; top: 16px; display: grid; gap: 8px; z-index: 20; }
@@ -336,19 +341,44 @@
       <option value="__new__">+ Create New Category</option>
     </select>
     <input type="text" name="newCategory" id="newCategoryInput" placeholder="Create New Category" style="display:none" />
-    <input type="number" step="0.01" min="0" name="actualBuyingPrice" placeholder="MRP / Actual Price" required />
-    <select name="buyingDiscountType">
-      <option value="percent">Buying Discount %</option>
-      <option value="fixed">Buying Discount ₹</option>
-    </select>
-    <input type="number" step="0.01" min="0" name="buyingDiscountValue" placeholder="Buying Discount Value" value="0" required />
-    <input type="number" step="0.01" min="0" name="buyingPrice" placeholder="Net Buying Price (Auto)" readonly required />
-    <select name="sellingDiscountType">
-      <option value="percent">Selling Discount % (on MRP)</option>
-      <option value="fixed">Selling Discount ₹ (on MRP)</option>
-    </select>
-    <input type="number" step="0.01" min="0" name="sellingDiscountValue" placeholder="Selling Discount Value" value="0" required />
-    <input type="number" step="0.01" min="0" name="sellingPrice" placeholder="Selling Price (Auto)" readonly required />
+
+    <div class="full pricing-tabs">
+      <button type="button" class="pricing-tab-btn active" data-pricing-mode="mrp_discount">MRP Adding</button>
+      <button type="button" class="pricing-tab-btn" data-pricing-mode="fixed_price">Fixed Buy/Sell</button>
+      <button type="button" class="pricing-tab-btn" data-pricing-mode="profit_margin">Profit Margin</button>
+    </div>
+    <input type="hidden" name="pricingMode" value="mrp_discount" />
+
+    <div class="pricing-pane active" data-pane="mrp_discount">
+      <input type="number" step="0.01" min="0" name="actualBuyingPrice" placeholder="MRP / Actual Price" />
+      <select name="buyingDiscountType">
+        <option value="percent">Buying Discount %</option>
+        <option value="fixed">Buying Discount ₹</option>
+      </select>
+      <input type="number" step="0.01" min="0" name="buyingDiscountValue" placeholder="Buying Discount Value" value="0" />
+      <input type="number" step="0.01" min="0" name="buyingPrice" placeholder="Net Buying Price (Auto)" readonly required />
+      <select name="sellingDiscountType">
+        <option value="percent">Selling Discount % (on MRP)</option>
+        <option value="fixed">Selling Discount ₹ (on MRP)</option>
+      </select>
+      <input type="number" step="0.01" min="0" name="sellingDiscountValue" placeholder="Selling Discount Value" value="0" />
+      <input type="number" step="0.01" min="0" name="sellingPrice" placeholder="Selling Price (Auto)" readonly required />
+    </div>
+
+    <div class="pricing-pane" data-pane="fixed_price">
+      <input type="number" step="0.01" min="0" name="fixedBuyingPrice" placeholder="Fixed Buying Price" value="0" />
+      <input type="number" step="0.01" min="0" name="fixedSellingPrice" placeholder="Fixed Selling Price" value="0" />
+    </div>
+
+    <div class="pricing-pane" data-pane="profit_margin">
+      <input type="number" step="0.01" min="0" name="costPrice" placeholder="Cost / Buying Price" value="0" />
+      <select name="profitType">
+        <option value="percent">Profit %</option>
+        <option value="fixed">Profit ₹</option>
+      </select>
+      <input type="number" step="0.01" min="0" name="profitValue" placeholder="Profit Value" value="0" />
+    </div>
+
     <input type="number" min="0" name="stock" placeholder="Stock Quantity" required />
     <div class="full row"><button class="btn" type="submit">Save</button><button class="btn ghost" type="button" data-close="itemModal">Cancel</button></div>
   </form>
@@ -437,6 +467,52 @@
   }
 
   function computeInventoryPricing(rec) {
+    const pricingMode = rec.pricingMode || 'mrp_discount';
+
+    if (pricingMode === 'fixed_price') {
+      const fixedBuyingPrice = Math.max(0, +rec.fixedBuyingPrice || +rec.buyingPrice || 0);
+      const fixedSellingPrice = Math.max(0, +rec.fixedSellingPrice || +rec.sellingPrice || 0);
+      return {
+        ...rec,
+        pricingMode,
+        actualBuyingPrice: fixedBuyingPrice,
+        buyingDiscountType: 'fixed',
+        buyingDiscountValue: 0,
+        buyingPrice: fixedBuyingPrice,
+        sellingDiscountType: 'fixed',
+        sellingDiscountValue: 0,
+        sellingDiscountAmount: 0,
+        fixedBuyingPrice,
+        fixedSellingPrice,
+        sellingPrice: fixedSellingPrice,
+        stock: Math.max(0, +rec.stock || 0)
+      };
+    }
+
+    if (pricingMode === 'profit_margin') {
+      const costPrice = Math.max(0, +rec.costPrice || +rec.buyingPrice || 0);
+      const profitType = rec.profitType || 'percent';
+      const profitValue = Math.max(0, +rec.profitValue || 0);
+      const profitAmount = profitType === 'percent' ? (costPrice * Math.min(profitValue, 1000) / 100) : profitValue;
+      const sellingPrice = Math.max(0, costPrice + profitAmount);
+      return {
+        ...rec,
+        pricingMode,
+        costPrice,
+        profitType,
+        profitValue,
+        actualBuyingPrice: costPrice,
+        buyingDiscountType: 'fixed',
+        buyingDiscountValue: 0,
+        buyingPrice: costPrice,
+        sellingDiscountType: 'fixed',
+        sellingDiscountValue: 0,
+        sellingDiscountAmount: 0,
+        sellingPrice,
+        stock: Math.max(0, +rec.stock || 0)
+      };
+    }
+
     const actualBuyingPrice = Math.max(0, +rec.actualBuyingPrice || +rec.buyingPrice || 0);
     const buyingDiscountType = rec.buyingDiscountType || 'fixed';
     const buyingDiscountValue = Math.max(0, +rec.buyingDiscountValue || 0);
@@ -450,6 +526,7 @@
 
     return {
       ...rec,
+      pricingMode,
       actualBuyingPrice,
       buyingDiscountType,
       buyingDiscountValue,
@@ -516,19 +593,41 @@
 
   function updateItemFormComputedPrices() {
     const form = byId('itemForm');
+    const mode = form.elements.pricingMode.value;
     const rec = {
+      pricingMode: mode,
       actualBuyingPrice: form.elements.actualBuyingPrice.value,
       buyingDiscountType: form.elements.buyingDiscountType.value,
       buyingDiscountValue: form.elements.buyingDiscountValue.value,
       sellingDiscountType: form.elements.sellingDiscountType.value,
       sellingDiscountValue: form.elements.sellingDiscountValue.value,
+      fixedBuyingPrice: form.elements.fixedBuyingPrice.value,
+      fixedSellingPrice: form.elements.fixedSellingPrice.value,
+      costPrice: form.elements.costPrice.value,
+      profitType: form.elements.profitType.value,
+      profitValue: form.elements.profitValue.value,
       stock: form.elements.stock.value
     };
     const calc = computeInventoryPricing(rec);
-    form.elements.buyingPrice.value = calc.buyingPrice.toFixed(2);
-    form.elements.sellingPrice.value = calc.sellingPrice.toFixed(2);
+    form.elements.buyingPrice.value = (calc.buyingPrice || 0).toFixed(2);
+    form.elements.sellingPrice.value = (calc.sellingPrice || 0).toFixed(2);
+    if (mode === 'fixed_price') {
+      form.elements.fixedBuyingPrice.value = (calc.buyingPrice || 0).toFixed(2);
+      form.elements.fixedSellingPrice.value = (calc.sellingPrice || 0).toFixed(2);
+    }
+    if (mode === 'profit_margin') {
+      form.elements.costPrice.value = (calc.buyingPrice || 0).toFixed(2);
+    }
   }
 
+
+  function setPricingMode(mode) {
+    const form = byId('itemForm');
+    form.elements.pricingMode.value = mode;
+    document.querySelectorAll('.pricing-tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.pricingMode === mode));
+    document.querySelectorAll('.pricing-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === mode));
+    updateItemFormComputedPrices();
+  }
 
   function populateCategoryOptions(selected = '') {
     const select = byId('itemCategorySelect');
@@ -560,6 +659,9 @@
       Object.entries(p).forEach(([k,v]) => f.elements[k] && (f.elements[k].value = v));
       populateCategoryOptions(p.category);
       toggleNewCategoryInput();
+      setPricingMode(p.pricingMode || 'mrp_discount');
+    } else {
+      setPricingMode('mrp_discount');
     }
     updateItemFormComputedPrices();
     m.classList.add('active');
@@ -872,7 +974,8 @@
   byId('inventorySearch').addEventListener('input', renderInventory);
   byId('addItemBtn').addEventListener('click', () => openItemModal());
   byId('itemCategorySelect').addEventListener('change', toggleNewCategoryInput);
-  ['actualBuyingPrice','buyingDiscountType','buyingDiscountValue','sellingDiscountType','sellingDiscountValue'].forEach(name => {
+  document.querySelectorAll('.pricing-tab-btn').forEach(btn => btn.addEventListener('click', () => setPricingMode(btn.dataset.pricingMode)));
+  ['actualBuyingPrice','buyingDiscountType','buyingDiscountValue','sellingDiscountType','sellingDiscountValue','fixedBuyingPrice','fixedSellingPrice','costPrice','profitType','profitValue'].forEach(name => {
     byId('itemForm').elements[name].addEventListener('input', updateItemFormComputedPrices);
     byId('itemForm').elements[name].addEventListener('change', updateItemFormComputedPrices);
   });
@@ -884,8 +987,11 @@
     let item = computeInventoryPricing({
       id: state.editingItemId || uid(),
       name: data.name.trim(), description: data.description.trim(), category: chosenCategory,
+      pricingMode:data.pricingMode,
       actualBuyingPrice:+data.actualBuyingPrice, buyingDiscountType:data.buyingDiscountType, buyingDiscountValue:+data.buyingDiscountValue,
-      sellingDiscountType:data.sellingDiscountType, sellingDiscountValue:+data.sellingDiscountValue, stock:+data.stock
+      sellingDiscountType:data.sellingDiscountType, sellingDiscountValue:+data.sellingDiscountValue,
+      fixedBuyingPrice:+data.fixedBuyingPrice, fixedSellingPrice:+data.fixedSellingPrice,
+      costPrice:+data.costPrice, profitType:data.profitType, profitValue:+data.profitValue, stock:+data.stock
     });
     if (!item.name || !item.category || item.stock < 0) return showToast('Please fill valid values');
     if (state.editingItemId) state.inventory = state.inventory.map(i => i.id === item.id ? item : i);
