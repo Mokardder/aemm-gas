@@ -325,6 +325,7 @@
         <input id="companyName" value="Smart Inventory Pro Pvt. Ltd." style="max-width:280px" />
         <input id="shopAddress" value="12 Market Road, Kolkata, West Bengal" style="max-width:520px" />
         <button class="btn" id="printBtn">Print / Download PDF</button>
+        <button class="btn ghost" id="editInvoiceBtn">Edit Invoice Items</button>
       </div>
       <div id="printableInvoice" class="invoice-box"></div>
     </section>
@@ -405,7 +406,7 @@
 <script>
   const DB_KEYS = { inventory: 'ims_inventory', customers: 'ims_customers', bills: 'ims_bills' };
   let state = {
-    inventory: [], customers: [], bills: [], currentCart: [], editingItemId: null, editingCustomerId: null, selectedProductId: null, selectedCustomerId: '', currentInvoice: null
+    inventory: [], customers: [], bills: [], currentCart: [], editingItemId: null, editingCustomerId: null, editingInvoiceId: null, selectedProductId: null, selectedCustomerId: '', currentInvoice: null
   };
 
   const byId = (id) => document.getElementById(id);
@@ -831,6 +832,48 @@
     byId('savedCustomerPane').classList.toggle('active', tab === 'saved');
   }
 
+  function syncInvoiceEditUI() {
+    const editing = !!state.editingInvoiceId;
+    byId('proceedInvoice').innerHTML = editing
+      ? '<i class="fa-solid fa-pen-to-square"></i> Update Invoice'
+      : '<i class="fa-solid fa-file-circle-check"></i> Proceed to Invoice';
+    byId('editInvoiceBtn').style.display = (state.currentInvoice || state.bills[0]) ? 'inline-flex' : 'none';
+  }
+
+  function editCurrentInvoiceItems() {
+    const inv = state.currentInvoice || state.bills[0];
+    if (!inv) return showToast('No invoice available to edit');
+    if (state.editingInvoiceId === inv.id) {
+      switchTab('billing');
+      return;
+    }
+
+    state.inventory = state.inventory.map(i => {
+      const billed = inv.items.find(it => it.id === i.id);
+      return billed ? { ...i, stock: i.stock + billed.quantity } : i;
+    });
+    persistInventory();
+
+    state.currentCart = inv.items.map(i => ({ ...i, inventoryDiscount: 0 }));
+    byId('billDiscountType').value = inv.billDiscountType || 'fixed';
+    byId('billDiscountValue').value = inv.billDiscountValue || 0;
+    byId('gstInput').value = inv.gstPercent || 0;
+    byId('walkInName').value = inv.customer?.name || '';
+    byId('walkInPhone').value = inv.customer?.phone && inv.customer.phone !== '-' ? inv.customer.phone : '';
+    byId('walkInAddress').value = inv.customer?.address && inv.customer.address !== '-' ? inv.customer.address : '';
+    const paymentInput = document.querySelector(`input[name="paymentMode"][value="${inv.paymentMode || 'Cash'}"]`);
+    if (paymentInput) paymentInput.checked = true;
+
+    state.bills = state.bills.filter(b => b.id !== inv.id);
+    persistBills();
+    state.currentInvoice = null;
+    state.editingInvoiceId = inv.id;
+
+    renderAll();
+    switchTab('billing');
+    showToast('Invoice loaded for editing. Add or remove items and update invoice.');
+  }
+
   function proceedInvoice() {
     if (!state.currentCart.length) return showToast('Add items in cart first');
     for (const c of state.currentCart) {
@@ -851,8 +894,9 @@
     });
     persistInventory();
 
+    const isEditingInvoice = !!state.editingInvoiceId;
     const invoice = {
-      id: 'INV-' + Date.now(),
+      id: state.editingInvoiceId || ('INV-' + Date.now()),
       date: new Date().toISOString(),
       customer,
       items: state.currentCart.map(i => ({ ...i })),
@@ -862,6 +906,7 @@
     state.bills.unshift(invoice);
     persistBills();
     state.currentInvoice = invoice;
+    state.editingInvoiceId = null;
 
     state.currentCart = [];
     state.selectedCustomerId = '';
@@ -870,7 +915,7 @@
     renderAll();
     switchTab('invoicing');
     renderInvoice();
-    showToast('Invoice generated successfully');
+    showToast(isEditingInvoice ? 'Invoice updated successfully' : 'Invoice generated successfully');
   }
 
   function renderCustomers() {
@@ -959,7 +1004,7 @@
   }
 
   function renderAll() {
-    renderDashboard(); renderInventory(); renderBillingProducts(); renderCart(); renderCustomers(); renderCustomerOptions(); renderInvoice();
+    renderDashboard(); renderInventory(); renderBillingProducts(); renderCart(); renderCustomers(); renderCustomerOptions(); renderInvoice(); syncInvoiceEditUI();
   }
 
   function closeModal(id) { byId(id).classList.remove('active'); }
@@ -1022,6 +1067,7 @@
   });
 
   byId('printBtn').addEventListener('click', () => window.print());
+  byId('editInvoiceBtn').addEventListener('click', editCurrentInvoiceItems);
   byId('companyName').addEventListener('input', renderInvoice);
   byId('shopAddress').addEventListener('input', renderInvoice);
   const appShell = document.querySelector('.app');
