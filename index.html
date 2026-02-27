@@ -171,7 +171,7 @@
     .bill-to-box p { margin: 4px 0; font-size: .88rem; }
     .invoice-header-print, .invoice-body-print, .invoice-footer-print { border:none; border-radius:0; padding:6px 0; background:#fff; }
     .invoice-body-print table { margin-top: 10px; }
-    .invoice-inner { padding: 0 5%; display:flex; flex-direction:column; min-height: 100%; }
+    .invoice-inner { padding: 8mm; display:grid; grid-template-rows:auto 1fr auto; min-height: 100%; height:100%; }
     @media (max-width: 1024px) {
       .billing-wrap { grid-template-columns: 1fr; }
       .sticky { position: static; }
@@ -191,13 +191,12 @@
       .main { padding: 0 !important; margin: 0 !important; }
       #invoicing.panel { display:block !important; }
       #printableInvoice, #printableInvoice * { visibility: visible; }
-      #printableInvoice { position: static; width: 210mm; height: 297mm; max-height: 297mm; box-shadow:none; border:none; display:flex; flex-direction:column; overflow: hidden; margin:0; padding: 0; }
-      .invoice-inner { min-height: auto; width: 100%; }
+      #printableInvoice { position: static; width: 210mm; height: 297mm; max-height: 297mm; box-shadow:none; border:none; display:block; overflow: hidden; margin:0; padding: 0; }
+      .invoice-inner { width: 100%; height: 100%; min-height: 297mm; padding: 6mm 8mm; display:grid; grid-template-rows:auto 1fr auto; }
       #printableInvoice::before { display:none; }
-      .invoice-header-print { position: static; padding: 8px 0; }
-      .invoice-inner { min-height: 297mm; }
-      .invoice-body-print { margin-top: 6px; flex: 1; overflow: hidden; }
-      .invoice-footer-print { position: static; margin-top: auto; border-top:1px dashed #cbd5e1; padding-top: 6px; break-inside: avoid-page; page-break-inside: avoid; font-size: .94rem; line-height: 1.25; background:#fff; }
+      .invoice-header-print { position: static; padding: 6px 0; }
+      .invoice-body-print { margin-top: 4px; overflow: hidden; }
+      .invoice-footer-print { position: static; margin-top: 6px; border-top:1px dashed #cbd5e1; padding-top: 6px; break-inside: avoid-page; page-break-inside: avoid; font-size: .9rem; line-height: 1.22; background:#fff; }
       .invoice-body-print table { width:100%; page-break-inside:auto; }
       .invoice-body-print tr, .invoice-body-print td, .invoice-body-print th { page-break-inside:avoid; }
       .no-print { display: none !important; }
@@ -322,8 +321,10 @@
     <section id="invoicing" class="panel">
       <h2>Invoicing</h2>
       <div class="row no-print" style="margin-bottom:8px">
-        <input id="companyName" value="Smart Inventory Pro Pvt. Ltd." style="max-width:280px" />
-        <input id="shopAddress" value="12 Market Road, Kolkata, West Bengal" style="max-width:520px" />
+        <select id="businessProfileSelect" style="max-width:260px"></select>
+        <input id="companyName" value="Smart Inventory Pro Pvt. Ltd." style="max-width:260px" placeholder="Business Name" />
+        <input id="shopAddress" value="12 Market Road, Kolkata, West Bengal" style="max-width:420px" placeholder="Business Address" />
+        <input id="shopContact" value="9830012345" style="max-width:180px" placeholder="Business Contact" />
         <button class="btn" id="printBtn">Print / Download PDF</button>
         <button class="btn ghost" id="editInvoiceBtn">Edit Invoice Items</button>
       </div>
@@ -404,9 +405,9 @@
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
-  const DB_KEYS = { inventory: 'ims_inventory', customers: 'ims_customers', bills: 'ims_bills' };
+  const DB_KEYS = { inventory: 'ims_inventory', customers: 'ims_customers', bills: 'ims_bills', businesses: 'ims_businesses' };
   let state = {
-    inventory: [], customers: [], bills: [], currentCart: [], editingItemId: null, editingCustomerId: null, editingInvoiceId: null, selectedProductId: null, selectedCustomerId: '', currentInvoice: null
+    inventory: [], customers: [], bills: [], businesses: [], currentCart: [], editingItemId: null, editingCustomerId: null, editingInvoiceId: null, selectedProductId: null, selectedCustomerId: '', currentInvoice: null
   };
 
   const byId = (id) => document.getElementById(id);
@@ -437,15 +438,26 @@
       ]);
     }
   }
+  function seedBusinessProfiles() {
+    if (!db.load(DB_KEYS.businesses).length) {
+      db.save(DB_KEYS.businesses, [
+        { id: uid(), name:'Smart Inventory Pro Pvt. Ltd.', address:'12 Market Road, Kolkata, West Bengal', contact:'9830012345' },
+        { id: uid(), name:'AEMM Wholesale Traders', address:'18 Station Road, Howrah, West Bengal', contact:'9876543210' }
+      ]);
+    }
+  }
+
 
   function loadState() {
     seedData();
+    seedBusinessProfiles();
     // @Mokardder - Fetch inventory data from DB here
     state.inventory = db.load(DB_KEYS.inventory, []).map(computeInventoryPricing);
     // @Mokardder - Customer DB operations here
     state.customers = db.load(DB_KEYS.customers, []);
     // @Mokardder - Invoice fetch/store logic here
     state.bills = db.load(DB_KEYS.bills, []);
+    state.businesses = db.load(DB_KEYS.businesses, []);
   }
 
   function persistInventory() {
@@ -459,6 +471,37 @@
   function persistBills() {
     // @Mokardder - Invoice fetch/store logic here
     db.save(DB_KEYS.bills, state.bills);
+  }
+  function persistBusinesses() {
+    db.save(DB_KEYS.businesses, state.businesses);
+  }
+
+  function renderBusinessOptions() {
+    const select = byId('businessProfileSelect');
+    select.innerHTML = '<option value="">Select Business</option>' + state.businesses.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+    const match = state.businesses.find(b => b.name === byId('companyName').value && b.address === byId('shopAddress').value);
+    if (match) select.value = match.id;
+  }
+
+  function applyBusinessProfile(id) {
+    const b = state.businesses.find(x => x.id === id);
+    if (!b) return;
+    byId('companyName').value = b.name;
+    byId('shopAddress').value = b.address;
+    byId('shopContact').value = b.contact || '';
+    renderInvoice();
+  }
+
+  function upsertBusinessProfileFromInputs() {
+    const name = byId('companyName').value.trim();
+    const address = byId('shopAddress').value.trim();
+    const contact = byId('shopContact').value.trim();
+    if (!name || !address) return;
+    const existing = state.businesses.find(b => b.name === name && b.address === address);
+    if (existing) existing.contact = contact;
+    else state.businesses.unshift({ id: uid(), name, address, contact });
+    persistBusinesses();
+    renderBusinessOptions();
   }
 
 
@@ -967,7 +1010,8 @@
           <div class="logo-ph">Logo</div>
           <h2 style="margin:8px 0 0">${byId('companyName').value}</h2>
           <small class="muted">Professional Billing Invoice</small>
-          <p class="muted" style="margin:6px 0 12px">${byId('shopAddress').value}</p>
+          <p class="muted" style="margin:6px 0 4px">${byId('shopAddress').value}</p>
+          <p class="muted" style="margin:0 0 12px"><strong>Contact:</strong> ${byId('shopContact').value || '-'}</p>
           <div class="bill-to-box">
             <p><strong>Bill To</strong></p>
             <p><strong>Name:</strong> ${inv.customer.name}</p>
@@ -1004,7 +1048,7 @@
   }
 
   function renderAll() {
-    renderDashboard(); renderInventory(); renderBillingProducts(); renderCart(); renderCustomers(); renderCustomerOptions(); renderInvoice(); syncInvoiceEditUI();
+    renderDashboard(); renderInventory(); renderBillingProducts(); renderCart(); renderCustomers(); renderCustomerOptions(); renderBusinessOptions(); renderInvoice(); syncInvoiceEditUI();
   }
 
   function closeModal(id) { byId(id).classList.remove('active'); }
@@ -1068,8 +1112,10 @@
 
   byId('printBtn').addEventListener('click', () => window.print());
   byId('editInvoiceBtn').addEventListener('click', editCurrentInvoiceItems);
-  byId('companyName').addEventListener('input', renderInvoice);
-  byId('shopAddress').addEventListener('input', renderInvoice);
+  byId('businessProfileSelect').addEventListener('change', (e) => applyBusinessProfile(e.target.value));
+  byId('companyName').addEventListener('input', () => { upsertBusinessProfileFromInputs(); renderInvoice(); });
+  byId('shopAddress').addEventListener('input', () => { upsertBusinessProfileFromInputs(); renderInvoice(); });
+  byId('shopContact').addEventListener('input', () => { upsertBusinessProfileFromInputs(); renderInvoice(); });
   const appShell = document.querySelector('.app');
   const sidebarEl = document.querySelector('.sidebar');
   sidebarEl.addEventListener('mouseenter', () => appShell.classList.add('sidebar-expanded'));
