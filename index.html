@@ -218,6 +218,7 @@
     <button class="nav-btn" data-tab="billing"><i class="fa-solid fa-cash-register"></i> <span>Billing / Sales</span></button>
     <button class="nav-btn" data-tab="customers"><i class="fa-solid fa-users"></i> <span>Customers</span></button>
     <button class="nav-btn" data-tab="invoicing"><i class="fa-solid fa-file-invoice"></i> <span>Invoicing</span></button>
+    <button class="nav-btn" data-tab="savedInvoices"><i class="fa-solid fa-receipt"></i> <span>Saved Invoices</span></button>
   </aside>
 
   <main class="main">
@@ -329,6 +330,17 @@
         <button class="btn ghost" id="editInvoiceBtn">Edit Invoice Items</button>
       </div>
       <div id="printableInvoice" class="invoice-box"></div>
+    </section>
+
+    <section id="savedInvoices" class="panel">
+      <h2>Saved Invoices</h2>
+      <p class="muted" style="margin:-4px 0 10px">View all generated invoices and quickly reopen the latest copy in the Invoicing tab.</p>
+      <div style="overflow:auto">
+        <table>
+          <thead><tr><th>Invoice #</th><th>Date</th><th>Customer</th><th>Phone</th><th>Items</th><th>Payment</th><th>Total</th><th>Actions</th></tr></thead>
+          <tbody id="savedInvoicesTableBody"></tbody>
+        </table>
+      </div>
     </section>
   </main>
 </div>
@@ -1045,6 +1057,31 @@
     persistCustomers(); renderCustomers(); renderCustomerOptions(); showToast('Customer deleted');
   }
 
+  function renderSavedInvoices() {
+    const body = byId('savedInvoicesTableBody');
+    body.innerHTML = state.bills.map(inv => `
+      <tr>
+        <td>${inv.id}</td>
+        <td>${new Date(inv.date).toLocaleString('en-IN')}</td>
+        <td>${inv.customer?.name || '-'}</td>
+        <td>${inv.customer?.phone || '-'}</td>
+        <td>${inv.items?.length || 0}</td>
+        <td>${inv.paymentMode || '-'}</td>
+        <td>${inr(inv.grandTotal)}</td>
+        <td><div class="actions"><button class="btn ghost" onclick="openSavedInvoice('${inv.id}')">Open</button></div></td>
+      </tr>
+    `).join('') || '<tr><td colspan="8" class="muted">No saved invoices yet.</td></tr>';
+  }
+
+  function openSavedInvoice(id) {
+    const inv = state.bills.find(x => x.id === id);
+    if (!inv) return showToast('Invoice not found');
+    state.currentInvoice = inv;
+    switchTab('invoicing');
+    renderInvoice();
+    showToast(`Opened ${inv.id}`);
+  }
+
   function renderInvoice() {
     const inv = state.currentInvoice || state.bills[0];
     if (!inv) return byId('printableInvoice').innerHTML = '<p class="muted">No invoice generated yet.</p>';
@@ -1102,7 +1139,7 @@
   }
 
   function renderAll() {
-    renderDashboard(); renderInventory(); renderBillingProducts(); renderCart(); renderCustomers(); renderCustomerOptions(); renderBusinessOptions(); renderInvoice(); syncInvoiceEditUI();
+    renderDashboard(); renderInventory(); renderBillingProducts(); renderCart(); renderCustomers(); renderCustomerOptions(); renderBusinessOptions(); renderSavedInvoices(); renderInvoice(); syncInvoiceEditUI();
   }
 
   function closeModal(id) { byId(id).classList.remove('active'); }
@@ -1199,6 +1236,7 @@
   window.closeModal = closeModal;
   window.openCustomerModal = openCustomerModal;
   window.deleteCustomer = deleteCustomer;
+  window.openSavedInvoice = openSavedInvoice;
 </script>
 </body>
 </html>
