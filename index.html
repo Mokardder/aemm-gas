@@ -405,9 +405,9 @@
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
-  const DB_KEYS = { inventory: 'ims_inventory', customers: 'ims_customers', bills: 'ims_bills', businesses: 'ims_businesses' };
+  const DB_KEYS = { inventory: 'ims_inventory', customers: 'ims_customers', bills: 'ims_bills', businesses: 'ims_businesses', invoiceSyncQueue: 'ims_invoice_sync_queue' };
   let state = {
-    inventory: [], customers: [], bills: [], businesses: [], currentCart: [], editingItemId: null, editingCustomerId: null, editingInvoiceId: null, selectedProductId: null, selectedCustomerId: '', currentInvoice: null
+    inventory: [], customers: [], bills: [], businesses: [], invoiceSyncQueue: [], currentCart: [], editingItemId: null, editingCustomerId: null, editingInvoiceId: null, selectedProductId: null, selectedCustomerId: '', currentInvoice: null
   };
 
   const byId = (id) => document.getElementById(id);
@@ -458,6 +458,7 @@
     // @Mokardder - Invoice fetch/store logic here
     state.bills = db.load(DB_KEYS.bills, []);
     state.businesses = db.load(DB_KEYS.businesses, []);
+    state.invoiceSyncQueue = db.load(DB_KEYS.invoiceSyncQueue, []);
   }
 
   function persistInventory() {
@@ -474,6 +475,9 @@
   }
   function persistBusinesses() {
     db.save(DB_KEYS.businesses, state.businesses);
+  }
+  function persistInvoiceSyncQueue() {
+    db.save(DB_KEYS.invoiceSyncQueue, state.invoiceSyncQueue);
   }
 
   function renderBusinessOptions() {
@@ -502,6 +506,56 @@
     else state.businesses.unshift({ id: uid(), name, address, contact });
     persistBusinesses();
     renderBusinessOptions();
+  }
+
+  function queueInvoiceForServerSync(inv, action = 'print_or_download') {
+    if (!inv) return;
+    const business = {
+      profileId: byId('businessProfileSelect').value || '',
+      name: byId('companyName').value.trim(),
+      address: byId('shopAddress').value.trim(),
+      contact: byId('shopContact').value.trim()
+    };
+    const lineItems = inv.items.map((it, idx) => ({
+      lineNo: idx + 1,
+      productId: it.id,
+      productName: it.name,
+      quantity: +it.quantity || 0,
+      unitPrice: +it.price || 0,
+      lineDiscount: +it.discount || 0,
+      inventoryDiscountPerUnit: +it.inventoryDiscount || 0,
+      lineGross: (+it.quantity || 0) * (+it.price || 0),
+      lineNet: ((+it.quantity || 0) * (+it.price || 0)) - (+it.discount || 0)
+    }));
+
+    const syncRecord = {
+      syncId: `SYNC-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      syncStatus: 'pending',
+      syncRetryCount: 0,
+      queuedAt: new Date().toISOString(),
+      trigger: action,
+      invoiceId: inv.id,
+      invoiceDate: inv.date,
+      paymentMode: inv.paymentMode,
+      customer: { ...inv.customer },
+      business,
+      pricing: {
+        subtotal: +inv.subtotal || 0,
+        itemLevelDiscount: +inv.itemLevelDiscount || 0,
+        billDiscountType: inv.billDiscountType || 'fixed',
+        billDiscountValue: +inv.billDiscountValue || 0,
+        billDiscount: +inv.billDiscount || 0,
+        totalDiscount: +inv.discount || 0,
+        gstPercent: +inv.gstPercent || 0,
+        gstAmount: +inv.gst || 0,
+        grandTotal: +inv.grandTotal || 0
+      },
+      items: lineItems,
+      invoiceHtmlSnapshot: byId('printableInvoice').innerHTML
+    };
+
+    state.invoiceSyncQueue.unshift(syncRecord);
+    persistInvoiceSyncQueue();
   }
 
 
@@ -1110,7 +1164,12 @@
     persistCustomers(); closeModal('customerModal'); renderCustomers(); renderCustomerOptions(); showToast('Customer saved');
   });
 
-  byId('printBtn').addEventListener('click', () => window.print());
+  byId('printBtn').addEventListener('click', () => {
+    const inv = state.currentInvoice || state.bills[0];
+    queueInvoiceForServerSync(inv, 'print_or_download');
+    showToast('Invoice saved for server sync');
+    window.print();
+  });
   byId('editInvoiceBtn').addEventListener('click', editCurrentInvoiceItems);
   byId('businessProfileSelect').addEventListener('change', (e) => applyBusinessProfile(e.target.value));
   byId('companyName').addEventListener('input', () => { upsertBusinessProfileFromInputs(); renderInvoice(); });
