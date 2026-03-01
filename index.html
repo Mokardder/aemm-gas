@@ -171,7 +171,7 @@
     .bill-to-box p { margin: 4px 0; font-size: .88rem; }
     .invoice-header-print, .invoice-body-print, .invoice-footer-print { border:none; border-radius:0; padding:6px 0; background:#fff; }
     .invoice-body-print table { margin-top: 10px; }
-    .invoice-inner { padding: 8mm; display:grid; grid-template-rows:auto 1fr auto; min-height: 100%; height:100%; }
+    .invoice-inner { padding: 8mm; display:flex; flex-direction:column; min-height: 100%; }
     @media (max-width: 1024px) {
       .billing-wrap { grid-template-columns: 1fr; }
       .sticky { position: static; }
@@ -192,11 +192,12 @@
       #invoicing.panel { display:block !important; }
       #printableInvoice, #printableInvoice * { visibility: visible; }
       #printableInvoice { position: static; width: 210mm; min-height: 297mm; height: auto; max-height: none; box-shadow:none; border:none; display:block; overflow: visible; margin:0; padding: 0; }
-      .invoice-inner { width: 100%; min-height: 297mm; height: auto; padding: 6mm 8mm; display:grid; grid-template-rows:auto 1fr auto; }
+      .invoice-inner { width: 100%; min-height: 297mm; height: auto; padding: 6mm 8mm; display:flex; flex-direction:column; }
       #printableInvoice::before { display:none; }
       .invoice-header-print { position: static; padding: 6px 0; }
       .invoice-body-print { margin-top: 4px; overflow: visible; }
-      .invoice-footer-print { position: static; margin-top: 2px; border-top:1px dashed #cbd5e1; padding-top: 4px; break-inside: avoid-page; page-break-inside: avoid; font-size: .9rem; line-height: 1.22; background:#fff; }
+      .invoice-footer-print { position: relative; margin-top: 6px; border-top:1px dashed #cbd5e1; padding-top: 4px; break-before: avoid-page; page-break-before: avoid; break-inside: avoid-page; page-break-inside: avoid; font-size: .9rem; line-height: 1.22; background:#fff; }
+      .invoice-footer-print, .invoice-footer-print * { break-inside: avoid-page; page-break-inside: avoid; }
       .invoice-body-print table { width:100%; page-break-inside:auto; }
       .invoice-body-print tr, .invoice-body-print td, .invoice-body-print th { page-break-inside:avoid; }
       .no-print { display: none !important; }
