@@ -456,6 +456,10 @@
     localStorage.setItem(DB_KEYS.lastSyncAt, iso || new Date().toISOString());
   }
 
+  function canSyncRemote() {
+    return location.protocol !== 'file:';
+  }
+
   function toSyncRows(list, idField = 'id') {
     return (list || []).map(rec => ({
       id: rec[idField] || rec.id || uid(),
@@ -489,6 +493,7 @@
   }
 
   async function pushAllToServer() {
+    if (!canSyncRemote()) { updateSyncStatusChip('disabled'); return; }
     if (syncInFlight) return;
     syncInFlight = true;
     updateSyncStatusChip('syncing');
@@ -504,7 +509,6 @@
       if (res && res.ok) { setLastSyncAt(res.serverTime || new Date().toISOString()); updateSyncStatusChip('synced'); }
     } catch (err) {
       console.warn('Sync push failed', err);
-      if (location.protocol === 'file:') showToast('Sync blocked by browser CORS on file://. Run app via local server (http://localhost).');
       updateSyncStatusChip('failed');
     } finally {
       syncInFlight = false;
@@ -512,6 +516,7 @@
   }
 
   async function pullFromServer() {
+    if (!canSyncRemote()) { updateSyncStatusChip('disabled'); return; }
     try {
       const res = await apiRequest('pull', { since: getLastSyncAt() }, 'GET');
       if (!res || !res.ok || !res.data) return;
@@ -533,7 +538,6 @@
       renderAll();
     } catch (err) {
       console.warn('Sync pull failed', err);
-      if (location.protocol === 'file:') showToast('Sync pull blocked on file://. Open via local server.');
       updateSyncStatusChip('failed');
     }
   }
@@ -552,12 +556,14 @@
       scheduled: 'Sync: scheduled',
       syncing: 'Sync: syncing...',
       synced: `Sync: synced ${new Date().toLocaleTimeString('en-IN')}`,
-      failed: 'Sync: failed (will retry)'
+      failed: 'Sync: failed (will retry)',
+      disabled: 'Sync: disabled on file:// (use http://localhost)'
     };
     el.textContent = map[status] || map.idle;
   }
 
   async function syncNow() {
+    if (!canSyncRemote()) { updateSyncStatusChip('disabled'); return showToast('Remote sync disabled on file://. Please run using local server.'); }
     updateSyncStatusChip('syncing');
     try {
       await pushAllToServer();
@@ -1423,9 +1429,9 @@
 
   loadState();
   renderAll();
-  updateSyncStatusChip('idle');
-  pullFromServer();
-  setInterval(() => { pushAllToServer(); pullFromServer(); }, 60000);
+  updateSyncStatusChip(canSyncRemote() ? 'idle' : 'disabled');
+  if (canSyncRemote()) pullFromServer();
+  setInterval(() => { if (canSyncRemote()) { pushAllToServer(); pullFromServer(); } }, 60000);
 
   window.openItemModal = openItemModal;
   window.deleteItem = deleteItem;
