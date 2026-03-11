@@ -112,6 +112,7 @@
     }
     input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.14); }
     .toolbar { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+    .sync-chip { border:1px solid var(--border); background:#eef2ff; color:#1e3a8a; border-radius:999px; padding:6px 10px; font-size:.8rem; }
     .search-wrap { position: relative; min-width: 260px; flex: 1; }
     .search-wrap svg { position: absolute; left: 10px; top: 10px; color: var(--muted); }
     .search-wrap input { padding-left: 34px; }
@@ -233,6 +234,8 @@
         <button class="btn" id="qaAddItem"><i class="fa-solid fa-plus"></i> Add Inventory Item</button>
         <button class="btn" id="qaCreateBill"><i class="fa-solid fa-file-invoice-dollar"></i> Create Bill</button>
         <button class="btn" id="qaAddCustomer"><i class="fa-solid fa-user-plus"></i> Add Customer</button>
+        <button class="btn ghost" id="manualSyncBtn"><i class="fa-solid fa-rotate"></i> Sync Now</button>
+        <span class="sync-chip" id="syncStatusChip">Sync: idle</span>
       </div>
     </section>
 
@@ -478,6 +481,7 @@
   async function pushAllToServer() {
     if (syncInFlight) return;
     syncInFlight = true;
+    updateSyncStatusChip('syncing');
     try {
       const changes = {
         inventory: toSyncRows(state.inventory, 'id'),
@@ -491,9 +495,10 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action:'push', apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, changes })
       }).then(r => r.json());
-      if (res && res.ok) setLastSyncAt(res.serverTime || new Date().toISOString());
+      if (res && res.ok) { setLastSyncAt(res.serverTime || new Date().toISOString()); updateSyncStatusChip('synced'); }
     } catch (err) {
       console.warn('Sync push failed', err);
+      updateSyncStatusChip('failed');
     } finally {
       syncInFlight = false;
     }
@@ -518,15 +523,44 @@
       db.save(DB_KEYS.invoiceSyncQueue, state.invoiceSyncQueue);
 
       setLastSyncAt(res.serverTime || new Date().toISOString());
+      updateSyncStatusChip('synced');
       renderAll();
     } catch (err) {
       console.warn('Sync pull failed', err);
+      updateSyncStatusChip('failed');
     }
   }
 
   function scheduleServerSync() {
     clearTimeout(syncTimer);
     syncTimer = setTimeout(pushAllToServer, 1200);
+    updateSyncStatusChip('scheduled');
+  }
+
+  function updateSyncStatusChip(status) {
+    const el = byId('syncStatusChip');
+    if (!el) return;
+    const map = {
+      idle: 'Sync: idle',
+      scheduled: 'Sync: scheduled',
+      syncing: 'Sync: syncing...',
+      synced: `Sync: synced ${new Date().toLocaleTimeString('en-IN')}`,
+      failed: 'Sync: failed (will retry)'
+    };
+    el.textContent = map[status] || map.idle;
+  }
+
+  async function syncNow() {
+    updateSyncStatusChip('syncing');
+    try {
+      await pushAllToServer();
+      await pullFromServer();
+      updateSyncStatusChip('synced');
+      showToast('Manual sync completed');
+    } catch (err) {
+      updateSyncStatusChip('failed');
+      showToast('Manual sync failed');
+    }
   }
 
   function seedData() {
@@ -1378,11 +1412,13 @@
   byId('qaAddItem').addEventListener('click', () => { switchTab('inventory'); openItemModal(); });
   byId('qaCreateBill').addEventListener('click', () => switchTab('billing'));
   byId('qaAddCustomer').addEventListener('click', () => { switchTab('customers'); openCustomerModal(); });
+  byId('manualSyncBtn').addEventListener('click', syncNow);
 
   loadState();
   renderAll();
+  updateSyncStatusChip('idle');
   pullFromServer();
-  setInterval(() => { pullFromServer(); }, 60000);
+  setInterval(() => { pushAllToServer(); pullFromServer(); }, 60000);
 
   window.openItemModal = openItemModal;
   window.deleteItem = deleteItem;
