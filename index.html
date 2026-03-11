@@ -480,9 +480,12 @@
 
   async function apiRequest(action, payload = {}, method = 'POST') {
     const params = new URLSearchParams({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload });
-    const url = method === 'GET' ? `${SYNC_CONFIG.apiUrl}?${params.toString()}` : SYNC_CONFIG.apiUrl;
-    const init = method === 'GET' ? {} : { method: 'POST', body: params.toString() };
-    return fetch(url, init).then(r => r.json());
+    if (method === 'GET') return fetch(`${SYNC_CONFIG.apiUrl}?${params.toString()}`).then(r => r.json());
+    return fetch(SYNC_CONFIG.apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload })
+    }).then(r => r.json());
   }
 
   async function pushAllToServer() {
