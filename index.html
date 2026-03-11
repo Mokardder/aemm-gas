@@ -490,14 +490,21 @@
         businesses: toSyncRows(state.businesses, 'id'),
         invoice_sync_queue: toSyncRows(state.invoiceSyncQueue, 'syncId')
       };
+      const payload = new URLSearchParams({
+        action: 'push',
+        apiKey: SYNC_CONFIG.apiKey,
+        clientId: SYNC_CONFIG.clientId,
+        changes: JSON.stringify(changes)
+      });
       const res = await fetch(SYNC_CONFIG.apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action:'push', apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, changes })
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        body: payload.toString()
       }).then(r => r.json());
       if (res && res.ok) { setLastSyncAt(res.serverTime || new Date().toISOString()); updateSyncStatusChip('synced'); }
     } catch (err) {
       console.warn('Sync push failed', err);
+      if (location.protocol === 'file:') showToast('Sync blocked by browser CORS on file://. Run app via local server (http://localhost).');
       updateSyncStatusChip('failed');
     } finally {
       syncInFlight = false;
@@ -527,6 +534,7 @@
       renderAll();
     } catch (err) {
       console.warn('Sync pull failed', err);
+      if (location.protocol === 'file:') showToast('Sync pull blocked on file://. Open via local server.');
       updateSyncStatusChip('failed');
     }
   }
