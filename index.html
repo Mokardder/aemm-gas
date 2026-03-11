@@ -482,15 +482,14 @@
     return Array.from(map.values());
   }
 
-  async function apiRequest(action, payload = {}, method = 'POST') {
-    const params = new URLSearchParams({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload });
-    if (method === 'GET') return fetch(`${SYNC_CONFIG.apiUrl}?${params.toString()}`).then(r => r.json());
-    return fetch(SYNC_CONFIG.apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload })
-    }).then(r => r.json());
-  }
+  const apiGet = (action, payload = {}) => fetch(
+    `${SYNC_CONFIG.apiUrl}?${new URLSearchParams({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload }).toString()}`
+  ).then(r => r.json());
+
+  const apiPost = (action, payload = {}) => fetch(SYNC_CONFIG.apiUrl, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload })
+  }).then(r => r.json());
 
   async function pushAllToServer() {
     if (!canSyncRemote()) { updateSyncStatusChip('disabled'); return; }
@@ -505,7 +504,7 @@
         businesses: toSyncRows(state.businesses, 'id'),
         invoice_sync_queue: toSyncRows(state.invoiceSyncQueue, 'syncId')
       };
-      const res = await apiRequest('push', { changes: JSON.stringify(changes) });
+      const res = await apiPost('push', { changes: JSON.stringify(changes) });
       if (res && res.ok) { setLastSyncAt(res.serverTime || new Date().toISOString()); updateSyncStatusChip('synced'); }
     } catch (err) {
       console.warn('Sync push failed', err);
@@ -518,7 +517,7 @@
   async function pullFromServer() {
     if (!canSyncRemote()) { updateSyncStatusChip('disabled'); return; }
     try {
-      const res = await apiRequest('pull', { since: getLastSyncAt() }, 'GET');
+      const res = await apiGet('pull', { since: getLastSyncAt() });
       if (!res || !res.ok || !res.data) return;
       const d = res.data;
       if (Array.isArray(d.inventory) && d.inventory.length) state.inventory = mergeById(state.inventory, d.inventory, 'id').map(computeInventoryPricing);
