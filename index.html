@@ -758,20 +758,18 @@
 </head>
 <body>
   <div id="printableInvoice">${invoiceMarkup}</div>
-  <script>
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        window.print();
-        window.close();
-      }, 120);
-    });
-  <\/script>
 </body>
 </html>`;
 
     printWindow.document.open();
     printWindow.document.write(popupHtml);
     printWindow.document.close();
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 120);
+    };
   }
 
   function computeDiscount(base, type, value) {
@@ -1033,16 +1031,20 @@
 
   function renderCart() {
     const list = byId('cartList');
-    list.innerHTML = state.currentCart.map(c => `
+    list.innerHTML = state.currentCart.map(c => {
+      const qty = Math.max(1, +c.quantity || 1);
+      const discountValue = Math.max(0, +c.discountValue || 0);
+      return `
       <div class="cart-item">
         <strong>${c.name}</strong>
-        <input type="number" min="1" value="${c.quantity}" onchange="updateCartQty('${c.id}', this.value)" />
+        <input type="number" min="1" value="${qty}" onchange="updateCartQty('${c.id}', this.value)" />
         <span>${inr(c.price)}</span>
         <span class='muted'>${inr(c.inventoryDiscount || 0)} base</span>
-        <span class="row"><select onchange="updateCartDiscountType('${c.id}', this.value)" style="width:58px"><option value="fixed" ${c.discountType==='fixed'?'selected':''}>₹</option><option value="percent" ${c.discountType==='percent'?'selected':''}>%</option></select><input type="number" min="0" value="${c.discountValue || 0}" onchange="updateCartDiscount('${c.id}', this.value)" title="Per-item discount" style="width:70px" /></span>
+        <span class="row"><select onchange="updateCartDiscountType('${c.id}', this.value)" style="width:58px"><option value="fixed" ${c.discountType==='fixed'?'selected':''}>₹</option><option value="percent" ${c.discountType==='percent'?'selected':''}>%</option></select><input type="number" min="0" value="${discountValue}" onchange="updateCartDiscount('${c.id}', this.value)" title="Per-item discount" style="width:70px" /></span>
         <button class="btn danger" onclick="removeCartItem('${c.id}')">X</button>
       </div>
-    `).join('') || '<p class="muted">Cart is empty.</p>';
+    `;
+    }).join('') || '<p class="muted">Cart is empty.</p>';
     calculateTotals();
   }
 
