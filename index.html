@@ -478,6 +478,13 @@
     return Array.from(map.values());
   }
 
+  async function apiRequest(action, payload = {}, method = 'POST') {
+    const params = new URLSearchParams({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload });
+    const url = method === 'GET' ? `${SYNC_CONFIG.apiUrl}?${params.toString()}` : SYNC_CONFIG.apiUrl;
+    const init = method === 'GET' ? {} : { method: 'POST', body: params.toString() };
+    return fetch(url, init).then(r => r.json());
+  }
+
   async function pushAllToServer() {
     if (syncInFlight) return;
     syncInFlight = true;
@@ -490,17 +497,7 @@
         businesses: toSyncRows(state.businesses, 'id'),
         invoice_sync_queue: toSyncRows(state.invoiceSyncQueue, 'syncId')
       };
-      const payload = new URLSearchParams({
-        action: 'push',
-        apiKey: SYNC_CONFIG.apiKey,
-        clientId: SYNC_CONFIG.clientId,
-        changes: JSON.stringify(changes)
-      });
-      const res = await fetch(SYNC_CONFIG.apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-        body: payload.toString()
-      }).then(r => r.json());
+      const res = await apiRequest('push', { changes: JSON.stringify(changes) });
       if (res && res.ok) { setLastSyncAt(res.serverTime || new Date().toISOString()); updateSyncStatusChip('synced'); }
     } catch (err) {
       console.warn('Sync push failed', err);
@@ -513,8 +510,7 @@
 
   async function pullFromServer() {
     try {
-      const url = `${SYNC_CONFIG.apiUrl}?action=pull&since=${encodeURIComponent(getLastSyncAt())}&apiKey=${encodeURIComponent(SYNC_CONFIG.apiKey)}&clientId=${encodeURIComponent(SYNC_CONFIG.clientId)}`;
-      const res = await fetch(url).then(r => r.json());
+      const res = await apiRequest('pull', { since: getLastSyncAt() }, 'GET');
       if (!res || !res.ok || !res.data) return;
       const d = res.data;
       if (Array.isArray(d.inventory) && d.inventory.length) state.inventory = mergeById(state.inventory, d.inventory, 'id').map(computeInventoryPricing);
