@@ -418,7 +418,8 @@
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
-  const DB_KEYS = { inventory: 'ims_inventory', customers: 'ims_customers', bills: 'ims_bills', businesses: 'ims_businesses', invoiceSyncQueue: 'ims_invoice_sync_queue' };
+  const DB_KEYS = { inventory: 'ims_inventory', customers: 'ims_customers', bills: 'ims_bills', businesses: 'ims_businesses', invoiceSyncQueue: 'ims_invoice_sync_queue', lastSyncAt:'ims_last_sync_at' };
+  const SYNC_CONFIG = { apiUrl:'https://script.google.com/macros/s/AKfycby5X2_QvJqk4kuYcpzIDa6YgvTUqOMrdI5y6sXfbT2yl3xuxATn2FsWnJ5Fc0yowIN5/exec', apiKey:'Mokardder@786', clientId:'web-pos-1' };
   let state = {
     inventory: [], customers: [], bills: [], businesses: [], invoiceSyncQueue: [], currentCart: [], editingItemId: null, editingCustomerId: null, editingInvoiceId: null, selectedProductId: null, selectedCustomerId: '', currentInvoice: null
   };
@@ -440,6 +441,93 @@
       localStorage.setItem(key, JSON.stringify(value));
     }
   };
+
+  let syncTimer = null;
+  let syncInFlight = false;
+
+  function getLastSyncAt() {
+    return localStorage.getItem(DB_KEYS.lastSyncAt) || '1970-01-01T00:00:00.000Z';
+  }
+
+  function setLastSyncAt(iso) {
+    localStorage.setItem(DB_KEYS.lastSyncAt, iso || new Date().toISOString());
+  }
+
+  function toSyncRows(list, idField = 'id') {
+    return (list || []).map(rec => ({
+      id: rec[idField] || rec.id || uid(),
+      updatedAt: rec.updatedAt || new Date().toISOString(),
+      deleted: !!rec.deleted,
+      version: +rec.version || 1,
+      payload: rec
+    }));
+  }
+
+  function mergeById(localRows, serverRows, idField = 'id') {
+    const map = new Map((localRows || []).map(r => [r[idField], r]));
+    (serverRows || []).forEach(row => {
+      const payload = row.payload || row;
+      const id = row.id || payload[idField] || payload.id;
+      if (!id) return;
+      if (row.deleted || payload.deleted) map.delete(id);
+      else map.set(id, { ...payload, [idField]: id });
+    });
+    return Array.from(map.values());
+  }
+
+  async function pushAllToServer() {
+    if (syncInFlight) return;
+    syncInFlight = true;
+    try {
+      const changes = {
+        inventory: toSyncRows(state.inventory, 'id'),
+        customers: toSyncRows(state.customers, 'id'),
+        bills: toSyncRows(state.bills, 'id'),
+        businesses: toSyncRows(state.businesses, 'id'),
+        invoice_sync_queue: toSyncRows(state.invoiceSyncQueue, 'syncId')
+      };
+      const res = await fetch(SYNC_CONFIG.apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action:'push', apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, changes })
+      }).then(r => r.json());
+      if (res && res.ok) setLastSyncAt(res.serverTime || new Date().toISOString());
+    } catch (err) {
+      console.warn('Sync push failed', err);
+    } finally {
+      syncInFlight = false;
+    }
+  }
+
+  async function pullFromServer() {
+    try {
+      const url = `${SYNC_CONFIG.apiUrl}?action=pull&since=${encodeURIComponent(getLastSyncAt())}&apiKey=${encodeURIComponent(SYNC_CONFIG.apiKey)}&clientId=${encodeURIComponent(SYNC_CONFIG.clientId)}`;
+      const res = await fetch(url).then(r => r.json());
+      if (!res || !res.ok || !res.data) return;
+      const d = res.data;
+      if (Array.isArray(d.inventory) && d.inventory.length) state.inventory = mergeById(state.inventory, d.inventory, 'id').map(computeInventoryPricing);
+      if (Array.isArray(d.customers) && d.customers.length) state.customers = mergeById(state.customers, d.customers, 'id');
+      if (Array.isArray(d.bills) && d.bills.length) state.bills = mergeById(state.bills, d.bills, 'id');
+      if (Array.isArray(d.businesses) && d.businesses.length) state.businesses = mergeById(state.businesses, d.businesses, 'id');
+      if (Array.isArray(d.invoice_sync_queue) && d.invoice_sync_queue.length) state.invoiceSyncQueue = mergeById(state.invoiceSyncQueue, d.invoice_sync_queue, 'syncId');
+
+      db.save(DB_KEYS.inventory, state.inventory);
+      db.save(DB_KEYS.customers, state.customers);
+      db.save(DB_KEYS.bills, state.bills);
+      db.save(DB_KEYS.businesses, state.businesses);
+      db.save(DB_KEYS.invoiceSyncQueue, state.invoiceSyncQueue);
+
+      setLastSyncAt(res.serverTime || new Date().toISOString());
+      renderAll();
+    } catch (err) {
+      console.warn('Sync pull failed', err);
+    }
+  }
+
+  function scheduleServerSync() {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(pushAllToServer, 1200);
+  }
 
   function seedData() {
     if (!db.load(DB_KEYS.inventory).length) {
@@ -477,20 +565,25 @@
   function persistInventory() {
     // @Mokardder - Update inventory data to DB here
     db.save(DB_KEYS.inventory, state.inventory);
+    scheduleServerSync();
   }
   function persistCustomers() {
     // @Mokardder - Customer DB operations here
     db.save(DB_KEYS.customers, state.customers);
+    scheduleServerSync();
   }
   function persistBills() {
     // @Mokardder - Invoice fetch/store logic here
     db.save(DB_KEYS.bills, state.bills);
+    scheduleServerSync();
   }
   function persistBusinesses() {
     db.save(DB_KEYS.businesses, state.businesses);
+    scheduleServerSync();
   }
   function persistInvoiceSyncQueue() {
     db.save(DB_KEYS.invoiceSyncQueue, state.invoiceSyncQueue);
+    scheduleServerSync();
   }
 
   function renderBusinessOptions() {
@@ -1288,6 +1381,8 @@
 
   loadState();
   renderAll();
+  pullFromServer();
+  setInterval(() => { pullFromServer(); }, 60000);
 
   window.openItemModal = openItemModal;
   window.deleteItem = deleteItem;
