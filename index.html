@@ -526,7 +526,7 @@
         businesses: toSyncRows(state.businesses, 'id'),
         invoice_sync_queue: toSyncRows(state.invoiceSyncQueue, 'syncId')
       };
-      const res = await apiPost('push', { changes: JSON.stringify(changes) });
+      const res = await apiPost('push', { changes });
       if (res && res.ok) { setLastSyncAt(res.serverTime || new Date().toISOString()); updateSyncStatusChip('synced'); }
     } catch (err) {
       console.warn('Sync push failed', err);
