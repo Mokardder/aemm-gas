@@ -494,29 +494,46 @@
       const timer = setTimeout(() => { cleanup(); reject(new Error('JSONP timeout')); }, 12000);
       window[callbackName] = (data) => { clearTimeout(timer); cleanup(); resolve(data); };
       script.onerror = () => { clearTimeout(timer); cleanup(); reject(new Error('JSONP request failed')); };
-      script.src = `${url}${url.includes('?') ? '&' : '?'}callback=${callbackName}`;
+      script.src = `${url}${url.includes('?') ? '&' : '?'}callback=${callbackName}&jsonp=${callbackName}`;
       document.body.appendChild(script);
     });
   }
 
-  const apiGet = (action, payload = {}) => {
+  async function apiGetViaFetch(url) {
+    const res = await fetch(url, { method:'GET' });
+    return res.json();
+  }
+
+  const apiGet = async (action, payload = {}) => {
     const query = new URLSearchParams({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload }).toString();
     const url = `${SYNC_CONFIG.apiUrl}?${query}`;
     console.log('[SYNC][GET][REQ]', { action, payload, url });
     if (location.protocol === 'file:') {
-      return apiGetViaJsonp(url).then(data => {
-        console.log('[SYNC][GET][RES][JSONP]', data);
+      try {
+        const data = await apiGetViaFetch(url);
+        console.log('[SYNC][GET][RES][FETCH]', data);
         return data;
-      }).catch(err => {
-        const skipped = { ok:false, skipped:true, reason:'jsonp_pull_failed', message:String(err) };
-        console.log('[SYNC][GET][RES]', skipped);
-        return skipped;
-      });
+      } catch (fetchErr) {
+        console.warn('[SYNC][GET][FETCH][FAIL]', fetchErr);
+        try {
+          const data = await apiGetViaJsonp(url);
+          console.log('[SYNC][GET][RES][JSONP]', data);
+          return data;
+        } catch (jsonpErr) {
+          const skipped = {
+            ok:false,
+            skipped:true,
+            reason:'pull_unavailable_on_file_origin',
+            message:`fetch:${String(fetchErr)} | jsonp:${String(jsonpErr)}`
+          };
+          console.log('[SYNC][GET][RES]', skipped);
+          return skipped;
+        }
+      }
     }
-    return fetch(url).then(r => r.json()).then(data => {
-      console.log('[SYNC][GET][RES]', data);
-      return data;
-    });
+    const data = await apiGetViaFetch(url);
+    console.log('[SYNC][GET][RES]', data);
+    return data;
   };
 
   const apiPost = async (action, payload = {}) => {
@@ -563,8 +580,11 @@
     try {
       const res = await apiGet('pull', { since: getLastSyncAt() });
       if (!res || !res.ok || !res.data) {
-        if (res && res.skipped) updateSyncStatusChip('limited');
-        return;
+        if (res && res.skipped) {
+          updateSyncStatusChip('limited');
+          return res;
+        }
+        return { ok:false, reason:'invalid_pull_response', response:res };
       }
       const d = res.data;
       if (Array.isArray(d.inventory) && d.inventory.length) state.inventory = mergeById(state.inventory, d.inventory, 'id').map(computeInventoryPricing);
@@ -582,9 +602,11 @@
       setLastSyncAt(res.serverTime || new Date().toISOString());
       updateSyncStatusChip('synced');
       renderAll();
+      return { ok:true, pulled:true };
     } catch (err) {
       console.warn('Sync pull failed', err);
       updateSyncStatusChip('failed');
+      return { ok:false, reason:'pull_exception', error:String(err) };
     }
   }
 
@@ -625,9 +647,18 @@
   async function pullNow() {
     updateSyncStatusChip('syncing');
     try {
-      await pullFromServer();
-      updateSyncStatusChip('synced');
-      showToast('Pull completed');
+      const res = await pullFromServer();
+      if (res && res.ok) {
+        updateSyncStatusChip('synced');
+        showToast('Pull completed');
+        return;
+      }
+      if (res && res.skipped) {
+        showToast('Pull unavailable in file mode (enable CORS or JSONP callback)');
+        return;
+      }
+      updateSyncStatusChip('failed');
+      showToast('Pull failed');
     } catch (err) {
       updateSyncStatusChip('failed');
       showToast('Pull failed');
