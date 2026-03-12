@@ -482,15 +482,37 @@
     return Array.from(map.values());
   }
 
+  function apiGetViaJsonp(url) {
+    return new Promise((resolve, reject) => {
+      const callbackName = `__imsJsonp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const script = document.createElement('script');
+      const cleanup = () => {
+        try { delete window[callbackName]; } catch (_) { window[callbackName] = undefined; }
+        script.remove();
+      };
+      const timer = setTimeout(() => { cleanup(); reject(new Error('JSONP timeout')); }, 12000);
+      window[callbackName] = (data) => { clearTimeout(timer); cleanup(); resolve(data); };
+      script.onerror = () => { clearTimeout(timer); cleanup(); reject(new Error('JSONP request failed')); };
+      script.src = `${url}${url.includes('?') ? '&' : '?'}callback=${callbackName}`;
+      document.body.appendChild(script);
+    });
+  }
+
   const apiGet = (action, payload = {}) => {
     const query = new URLSearchParams({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload }).toString();
-    console.log('[SYNC][GET][REQ]', { action, payload, url: `${SYNC_CONFIG.apiUrl}?${query}` });
+    const url = `${SYNC_CONFIG.apiUrl}?${query}`;
+    console.log('[SYNC][GET][REQ]', { action, payload, url });
     if (location.protocol === 'file:') {
-      const skipped = { ok:false, skipped:true, reason:'pull_not_supported_on_file_origin' };
-      console.log('[SYNC][GET][RES]', skipped);
-      return Promise.resolve(skipped);
+      return apiGetViaJsonp(url).then(data => {
+        console.log('[SYNC][GET][RES][JSONP]', data);
+        return data;
+      }).catch(err => {
+        const skipped = { ok:false, skipped:true, reason:'jsonp_pull_failed', message:String(err) };
+        console.log('[SYNC][GET][RES]', skipped);
+        return skipped;
+      });
     }
-    return fetch(`${SYNC_CONFIG.apiUrl}?${query}`).then(r => r.json()).then(data => {
+    return fetch(url).then(r => r.json()).then(data => {
       console.log('[SYNC][GET][RES]', data);
       return data;
     });
@@ -581,7 +603,7 @@
       synced: `Sync: synced ${new Date().toLocaleTimeString('en-IN')}`,
       failed: 'Sync: failed (will retry)',
       disabled: 'Sync: disabled',
-      limited: 'Sync: file:// mode (push only)'
+      limited: 'Sync: file:// mode (push + JSONP pull)'
     };
     el.textContent = map[status] || map.idle;
   }
@@ -1455,8 +1477,8 @@
   loadState();
   renderAll();
   updateSyncStatusChip(location.protocol === 'file:' ? 'limited' : 'idle');
-  if (location.protocol !== 'file:') pullFromServer();
-  setInterval(() => { pushAllToServer(); if (location.protocol !== 'file:') pullFromServer(); }, 60000);
+  pullFromServer();
+  setInterval(() => { pushAllToServer(); pullFromServer(); }, 60000);
 
   window.openItemModal = openItemModal;
   window.deleteItem = deleteItem;
