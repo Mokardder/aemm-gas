@@ -235,6 +235,7 @@
         <button class="btn" id="qaCreateBill"><i class="fa-solid fa-file-invoice-dollar"></i> Create Bill</button>
         <button class="btn" id="qaAddCustomer"><i class="fa-solid fa-user-plus"></i> Add Customer</button>
         <button class="btn ghost" id="manualSyncBtn"><i class="fa-solid fa-rotate"></i> Sync Now</button>
+        <button class="btn ghost" id="manualPullBtn"><i class="fa-solid fa-download"></i> Pull Data</button>
         <span class="sync-chip" id="syncStatusChip">Sync: idle</span>
       </div>
     </section>
@@ -603,7 +604,7 @@
       synced: `Sync: synced ${new Date().toLocaleTimeString('en-IN')}`,
       failed: 'Sync: failed (will retry)',
       disabled: 'Sync: disabled',
-      limited: 'Sync: file:// mode (push + JSONP pull)'
+      limited: 'Sync: idle'
     };
     el.textContent = map[status] || map.idle;
   }
@@ -618,6 +619,18 @@
     } catch (err) {
       updateSyncStatusChip('failed');
       showToast('Manual sync failed');
+    }
+  }
+
+  async function pullNow() {
+    updateSyncStatusChip('syncing');
+    try {
+      await pullFromServer();
+      updateSyncStatusChip('synced');
+      showToast('Pull completed');
+    } catch (err) {
+      updateSyncStatusChip('failed');
+      showToast('Pull failed');
     }
   }
 
@@ -949,6 +962,8 @@
   }
 
 
+  const compactNum = (n) => { const v = Math.round((+n || 0) * 100) / 100; return Number.isFinite(v) ? String(v) : '0'; };
+
   function updateItemFormComputedPrices() {
     const form = byId('itemForm');
     const mode = form.elements.pricingMode.value;
@@ -967,14 +982,14 @@
       stock: form.elements.stock.value
     };
     const calc = computeInventoryPricing(rec);
-    form.elements.buyingPrice.value = (calc.buyingPrice || 0).toFixed(2);
-    form.elements.sellingPrice.value = (calc.sellingPrice || 0).toFixed(2);
+    form.elements.buyingPrice.value = compactNum(calc.buyingPrice);
+    form.elements.sellingPrice.value = compactNum(calc.sellingPrice);
     if (mode === 'fixed_price') {
-      form.elements.fixedBuyingPrice.value = (calc.buyingPrice || 0).toFixed(2);
-      form.elements.fixedSellingPrice.value = (calc.sellingPrice || 0).toFixed(2);
+      form.elements.fixedBuyingPrice.value = compactNum(calc.buyingPrice);
+      form.elements.fixedSellingPrice.value = compactNum(calc.sellingPrice);
     }
     if (mode === 'profit_margin') {
-      form.elements.costPrice.value = (calc.buyingPrice || 0).toFixed(2);
+      form.elements.costPrice.value = compactNum(calc.buyingPrice);
     }
   }
 
@@ -1473,6 +1488,7 @@
   byId('qaCreateBill').addEventListener('click', () => switchTab('billing'));
   byId('qaAddCustomer').addEventListener('click', () => { switchTab('customers'); openCustomerModal(); });
   byId('manualSyncBtn').addEventListener('click', syncNow);
+  byId('manualPullBtn').addEventListener('click', pullNow);
 
   loadState();
   renderAll();
