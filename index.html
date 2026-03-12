@@ -483,23 +483,35 @@
   }
 
   const apiGet = (action, payload = {}) => {
+    const query = new URLSearchParams({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload }).toString();
+    console.log('[SYNC][GET][REQ]', { action, payload, url: `${SYNC_CONFIG.apiUrl}?${query}` });
     if (location.protocol === 'file:') {
-      return Promise.resolve({ ok:false, skipped:true, reason:'pull_not_supported_on_file_origin' });
+      const skipped = { ok:false, skipped:true, reason:'pull_not_supported_on_file_origin' };
+      console.log('[SYNC][GET][RES]', skipped);
+      return Promise.resolve(skipped);
     }
-    return fetch(
-      `${SYNC_CONFIG.apiUrl}?${new URLSearchParams({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload }).toString()}`
-    ).then(r => r.json());
+    return fetch(`${SYNC_CONFIG.apiUrl}?${query}`).then(r => r.json()).then(data => {
+      console.log('[SYNC][GET][RES]', data);
+      return data;
+    });
   };
 
   const apiPost = async (action, payload = {}) => {
-    const body = JSON.stringify({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload });
+    const reqBody = { action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload };
+    const body = JSON.stringify(reqBody);
+    console.log('[SYNC][POST][REQ]', { action, payload: reqBody, url: SYNC_CONFIG.apiUrl });
     if (location.protocol === 'file:') {
       await fetch(SYNC_CONFIG.apiUrl, { method:'POST', mode:'no-cors', headers:{ 'Content-Type':'text/plain;charset=UTF-8' }, body });
-      return { ok:true, opaque:true, serverTime:new Date().toISOString() };
+      const opaqueRes = { ok:true, opaque:true, serverTime:new Date().toISOString() };
+      console.log('[SYNC][POST][RES]', opaqueRes);
+      return opaqueRes;
     }
     return fetch(SYNC_CONFIG.apiUrl, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body
-    }).then(r => r.json());
+    }).then(r => r.json()).then(data => {
+      console.log('[SYNC][POST][RES]', data);
+      return data;
+    });
   };
 
   async function pushAllToServer() {
