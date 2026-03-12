@@ -457,7 +457,7 @@
   }
 
   function canSyncRemote() {
-    return location.protocol !== 'file:';
+    return !!SYNC_CONFIG.apiUrl;
   }
 
   function toSyncRows(list, idField = 'id') {
@@ -482,17 +482,27 @@
     return Array.from(map.values());
   }
 
-  const apiGet = (action, payload = {}) => fetch(
-    `${SYNC_CONFIG.apiUrl}?${new URLSearchParams({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload }).toString()}`
-  ).then(r => r.json());
+  const apiGet = (action, payload = {}) => {
+    if (location.protocol === 'file:') {
+      return Promise.resolve({ ok:false, skipped:true, reason:'pull_not_supported_on_file_origin' });
+    }
+    return fetch(
+      `${SYNC_CONFIG.apiUrl}?${new URLSearchParams({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload }).toString()}`
+    ).then(r => r.json());
+  };
 
-  const apiPost = (action, payload = {}) => fetch(SYNC_CONFIG.apiUrl, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload })
-  }).then(r => r.json());
+  const apiPost = async (action, payload = {}) => {
+    const body = JSON.stringify({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload });
+    if (location.protocol === 'file:') {
+      await fetch(SYNC_CONFIG.apiUrl, { method:'POST', mode:'no-cors', headers:{ 'Content-Type':'text/plain;charset=UTF-8' }, body });
+      return { ok:true, opaque:true, serverTime:new Date().toISOString() };
+    }
+    return fetch(SYNC_CONFIG.apiUrl, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+    }).then(r => r.json());
+  };
 
   async function pushAllToServer() {
-    if (!canSyncRemote()) { updateSyncStatusChip('disabled'); return; }
     if (syncInFlight) return;
     syncInFlight = true;
     updateSyncStatusChip('syncing');
@@ -515,10 +525,12 @@
   }
 
   async function pullFromServer() {
-    if (!canSyncRemote()) { updateSyncStatusChip('disabled'); return; }
     try {
       const res = await apiGet('pull', { since: getLastSyncAt() });
-      if (!res || !res.ok || !res.data) return;
+      if (!res || !res.ok || !res.data) {
+        if (res && res.skipped) updateSyncStatusChip('limited');
+        return;
+      }
       const d = res.data;
       if (Array.isArray(d.inventory) && d.inventory.length) state.inventory = mergeById(state.inventory, d.inventory, 'id').map(computeInventoryPricing);
       if (Array.isArray(d.customers) && d.customers.length) state.customers = mergeById(state.customers, d.customers, 'id');
@@ -556,13 +568,13 @@
       syncing: 'Sync: syncing...',
       synced: `Sync: synced ${new Date().toLocaleTimeString('en-IN')}`,
       failed: 'Sync: failed (will retry)',
-      disabled: 'Sync: disabled on file:// (use http://localhost)'
+      disabled: 'Sync: disabled',
+      limited: 'Sync: file:// mode (push only)'
     };
     el.textContent = map[status] || map.idle;
   }
 
   async function syncNow() {
-    if (!canSyncRemote()) { updateSyncStatusChip('disabled'); return showToast('Remote sync disabled on file://. Please run using local server.'); }
     updateSyncStatusChip('syncing');
     try {
       await pushAllToServer();
@@ -1430,9 +1442,9 @@
 
   loadState();
   renderAll();
-  updateSyncStatusChip(canSyncRemote() ? 'idle' : 'disabled');
-  if (canSyncRemote()) pullFromServer();
-  setInterval(() => { if (canSyncRemote()) { pushAllToServer(); pullFromServer(); } }, 60000);
+  updateSyncStatusChip(location.protocol === 'file:' ? 'limited' : 'idle');
+  if (location.protocol !== 'file:') pullFromServer();
+  setInterval(() => { pushAllToServer(); if (location.protocol !== 'file:') pullFromServer(); }, 60000);
 
   window.openItemModal = openItemModal;
   window.deleteItem = deleteItem;
