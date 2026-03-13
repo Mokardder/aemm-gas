@@ -741,6 +741,10 @@
     return (list || []).map(rec => ({ ...rec, updatedAt: now, version: (+rec.version || 0) + 1 }));
   }
 
+  function activeInventory() {
+    return state.inventory.filter(i => !i.deleted);
+  }
+
   function persistInventory() {
     // @Mokardder - Update inventory data to DB here
     state.inventory = stampRecordsForSync(state.inventory);
@@ -1002,12 +1006,12 @@
   }
 
   function renderDashboard() {
-    const inventoryValue = state.inventory.reduce((sum, i) => sum + (i.buyingPrice * i.stock), 0);
+    const inventoryValue = activeInventory().reduce((sum, i) => sum + (i.buyingPrice * i.stock), 0);
     const stats = dailyMonthlyAnnualStats();
     const totalItemsSold = state.bills.reduce((sum, b) => sum + b.items.reduce((s, it) => s + it.quantity, 0), 0);
     const totalSoldAmount = state.bills.reduce((sum, b) => sum + b.subtotal, 0);
     const cards = [
-      ['Total Products in Inventory', state.inventory.length],
+      ['Total Products in Inventory', activeInventory().length],
       ['Total Inventory Value (Buying)', inr(inventoryValue)],
       ['Total Items Sold', totalItemsSold],
       ['Sold Amount', inr(totalSoldAmount)],
@@ -1026,7 +1030,7 @@
 
   function renderInventory() {
     const q = byId('inventorySearch').value.toLowerCase();
-    const rows = state.inventory.filter(i => `${i.name} ${i.description} ${i.category}`.toLowerCase().includes(q));
+    const rows = activeInventory().filter(i => `${i.name} ${i.description} ${i.category}`.toLowerCase().includes(q));
     byId('inventoryTableBody').innerHTML = rows.map(i => `
       <tr>
         <td>${i.name}</td><td>${i.description}</td><td><span class="pill">${i.category}</span></td>
@@ -1079,7 +1083,7 @@
 
   function populateCategoryOptions(selected = '') {
     const select = byId('itemCategorySelect');
-    const categories = [...new Set(state.inventory.map(i => i.category).filter(Boolean))].sort();
+    const categories = [...new Set(activeInventory().map(i => i.category).filter(Boolean))].sort();
     select.innerHTML = '<option value="">Select Category</option>' + categories.map(c => `<option value="${c}">${c}</option>`).join('') + '<option value="__new__">+ Create New Category</option>';
     if (selected && categories.includes(selected)) select.value = selected;
     else if (selected) {
@@ -1103,7 +1107,8 @@
     populateCategoryOptions();
     toggleNewCategoryInput();
     if (id) {
-      const p = state.inventory.find(x => x.id === id);
+      const p = activeInventory().find(x => x.id === id);
+      if (!p) { showToast('Item no longer available'); return; }
       Object.entries(p).forEach(([k,v]) => f.elements[k] && (f.elements[k].value = v));
       populateCategoryOptions(p.category);
       toggleNewCategoryInput();
@@ -1117,12 +1122,18 @@
 
   function deleteItem(id) {
     if (!confirm('Delete this item permanently?')) return;
-    state.inventory = state.inventory.filter(i => i.id !== id);
+    const current = state.inventory.find(i => i.id === id);
+    if (!current) return;
+    state.inventory = state.inventory.map(i => i.id === id
+      ? { ...i, deleted: true, stock: 0 }
+      : i
+    );
+    state.currentCart = state.currentCart.filter(c => c.id !== id);
     persistInventory(); renderAll(); showToast('Inventory item deleted');
   }
 
   function renderBillingProducts() {
-    const categories = ['All', ...new Set(state.inventory.map(i => i.category))];
+    const categories = ['All', ...new Set(activeInventory().map(i => i.category))];
     byId('billingCategoryFilter').innerHTML = categories.map(c => `<option>${c}</option>`).join('');
     refreshProductGrid();
   }
@@ -1130,12 +1141,12 @@
   function refreshProductGrid() {
     const q = byId('billingSearch').value.toLowerCase();
     const cat = byId('billingCategoryFilter').value || 'All';
-    const items = state.inventory.filter(i => (cat === 'All' || i.category === cat) && i.name.toLowerCase().includes(q));
+    const items = activeInventory().filter(i => (cat === 'All' || i.category === cat) && i.name.toLowerCase().includes(q));
     byId('productGrid').innerHTML = items.map(i => `<div class="product-card" onclick="openProductModal('${i.id}')"><strong>${i.name}</strong><p class="muted">${inr(i.sellingPrice)}</p><small>Stock: ${i.stock}</small></div>`).join('') || '<p class="muted">No products found.</p>';
   }
 
   function openProductModal(id) {
-    const p = state.inventory.find(i => i.id === id);
+    const p = activeInventory().find(i => i.id === id);
     if (!p || p.stock <= 0) return showToast('Out of stock');
     state.selectedProductId = id;
     byId('productModalBody').innerHTML = `
@@ -1151,7 +1162,8 @@
 
   function addToCart() {
     const qty = +byId('addQty').value;
-    const p = state.inventory.find(i => i.id === state.selectedProductId);
+    const p = activeInventory().find(i => i.id === state.selectedProductId);
+    if (!p) return showToast('Product no longer available');
     if (!qty || qty < 1 || qty > p.stock) return showToast('Invalid quantity');
     const existing = state.currentCart.find(c => c.id === p.id);
     if (existing) {
@@ -1186,7 +1198,8 @@
 
   function updateCartQty(id, value) {
     const item = state.currentCart.find(c => c.id === id);
-    const inv = state.inventory.find(i => i.id === id);
+    const inv = activeInventory().find(i => i.id === id);
+    if (!inv) return showToast('Product no longer available');
     const q = +value;
     if (!q || q < 1 || q > inv.stock) return showToast('Stock is insufficient');
     item.quantity = q; updateCartDiscount(id, item.discountValue || 0); renderCart();
@@ -1327,8 +1340,8 @@
   function proceedInvoice() {
     if (!state.currentCart.length) return showToast('Add items in cart first');
     for (const c of state.currentCart) {
-      const inv = state.inventory.find(i => i.id === c.id);
-      if (c.quantity > inv.stock) return showToast(`Stock insufficient for ${c.name}`);
+      const inv = activeInventory().find(i => i.id === c.id);
+      if (!inv || c.quantity > inv.stock) return showToast(`Stock insufficient for ${c.name}`);
     }
     const { subtotal, itemLevelDiscount, billDiscountType, billDiscountValue, billDiscount, discount, gstPercent, gst, grand } = calculateTotals();
     const customer = {
