@@ -483,8 +483,8 @@
     const isIncomingNewer = (incoming, existing) => {
       const a = getRecency(incoming);
       const b = getRecency(existing);
-      if (a.version !== b.version) return a.version > b.version;
-      return a.updatedAt >= b.updatedAt;
+      if (a.updatedAt !== b.updatedAt) return a.updatedAt > b.updatedAt;
+      return a.version >= b.version;
     };
 
     (serverRows || []).forEach(row => {
