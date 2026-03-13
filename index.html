@@ -448,6 +448,7 @@
 
   let syncTimer = null;
   let syncInFlight = false;
+  let pendingSync = false;
 
   function getLastSyncAt() {
     return localStorage.getItem(DB_KEYS.lastSyncAt) || '1970-01-01T00:00:00.000Z';
@@ -555,8 +556,12 @@
   };
 
   async function pushAllToServer() {
-    if (syncInFlight) return;
+    if (syncInFlight) {
+      pendingSync = true;
+      return;
+    }
     syncInFlight = true;
+    pendingSync = false;
     updateSyncStatusChip('syncing');
     try {
       const changes = {
@@ -573,6 +578,11 @@
       updateSyncStatusChip('failed');
     } finally {
       syncInFlight = false;
+      if (pendingSync) {
+        clearTimeout(syncTimer);
+        syncTimer = setTimeout(pushAllToServer, 250);
+        updateSyncStatusChip('scheduled');
+      }
     }
   }
 
@@ -611,6 +621,7 @@
   }
 
   function scheduleServerSync() {
+    pendingSync = true;
     clearTimeout(syncTimer);
     syncTimer = setTimeout(pushAllToServer, 1200);
     updateSyncStatusChip('scheduled');
@@ -698,8 +709,14 @@
     state.invoiceSyncQueue = db.load(DB_KEYS.invoiceSyncQueue, []);
   }
 
+  function stampRecordsForSync(list) {
+    const now = new Date().toISOString();
+    return (list || []).map(rec => ({ ...rec, updatedAt: now, version: (+rec.version || 0) + 1 }));
+  }
+
   function persistInventory() {
     // @Mokardder - Update inventory data to DB here
+    state.inventory = stampRecordsForSync(state.inventory);
     db.save(DB_KEYS.inventory, state.inventory);
     scheduleServerSync();
   }
