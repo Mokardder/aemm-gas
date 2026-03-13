@@ -474,13 +474,40 @@
 
   function mergeById(localRows, serverRows, idField = 'id') {
     const map = new Map((localRows || []).map(r => [r[idField], r]));
+
+    const getRecency = (rec = {}) => ({
+      version: Number(rec.version || 0),
+      updatedAt: new Date(rec.updatedAt || 0).getTime() || 0
+    });
+
+    const isIncomingNewer = (incoming, existing) => {
+      const a = getRecency(incoming);
+      const b = getRecency(existing);
+      if (a.version !== b.version) return a.version > b.version;
+      return a.updatedAt >= b.updatedAt;
+    };
+
     (serverRows || []).forEach(row => {
       const payload = row.payload || row;
       const id = row.id || payload[idField] || payload.id;
       if (!id) return;
-      if (row.deleted || payload.deleted) map.delete(id);
-      else map.set(id, { ...payload, [idField]: id });
+
+      const current = map.get(id);
+      const incoming = {
+        ...payload,
+        [idField]: id,
+        updatedAt: row.updatedAt || payload.updatedAt || new Date().toISOString(),
+        version: Number(row.version || payload.version || 1)
+      };
+
+      if (current && !isIncomingNewer(incoming, current)) return;
+      if (row.deleted || payload.deleted) {
+        map.delete(id);
+        return;
+      }
+      map.set(id, incoming);
     });
+
     return Array.from(map.values());
   }
 
