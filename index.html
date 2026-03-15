@@ -431,6 +431,7 @@
   const byId = (id) => document.getElementById(id);
   const inr = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(+n || 0).replace('₹', '₹ ');
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const SAMPLE_ITEM_ID = 'sample-local-item';
   const showToast = (msg) => {
     const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
     byId('toastWrap').appendChild(t); setTimeout(() => t.remove(), 2400);
@@ -635,7 +636,16 @@
         return { ok:false, reason:'invalid_pull_response', response:res };
       }
       const d = res.data;
-      if (Array.isArray(d.inventory) && d.inventory.length) state.inventory = mergeById(state.inventory, d.inventory, 'id').map(computeInventoryPricing);
+      if (Array.isArray(d.inventory) && d.inventory.length) {
+        const serverInventory = mergeById([], d.inventory, 'id').map(computeInventoryPricing);
+        const hasServerInventory = serverInventory.some(i => !i.deleted);
+        const localOnlySample = state.inventory.length === 1 && state.inventory[0].id === SAMPLE_ITEM_ID;
+        if (hasServerInventory && localOnlySample) {
+          state.inventory = serverInventory;
+        } else {
+          state.inventory = mergeById(state.inventory, d.inventory, 'id').map(computeInventoryPricing);
+        }
+      }
       if (Array.isArray(d.customers) && d.customers.length) state.customers = mergeById(state.customers, d.customers, 'id');
       if (Array.isArray(d.bills) && d.bills.length) state.bills = mergeById(state.bills, d.bills, 'id');
       if (Array.isArray(d.businesses) && d.businesses.length) state.businesses = mergeById(state.businesses, d.businesses, 'id');
@@ -718,9 +728,23 @@
     if (!db.load(DB_KEYS.inventory).length) {
       // @Mokardder - Update inventory data to DB here
       db.save(DB_KEYS.inventory, [
-        { id: uid(), name:'Rice 5kg', description:'Premium basmati rice', category:'Grocery', actualBuyingPrice:400, buyingDiscountType:'fixed', buyingDiscountValue:20, buyingPrice:380, sellingDiscountType:'fixed', sellingDiscountValue:70, sellingPrice:450, stock:20 },
-        { id: uid(), name:'Sunflower Oil', description:'1 litre bottle', category:'Grocery', actualBuyingPrice:130, buyingDiscountType:'fixed', buyingDiscountValue:10, buyingPrice:120, sellingDiscountType:'fixed', sellingDiscountValue:35, sellingPrice:155, stock:35 },
-        { id: uid(), name:'Dish Soap', description:'Lemon fragrance', category:'Home Care', actualBuyingPrice:40, buyingDiscountType:'fixed', buyingDiscountValue:2, buyingPrice:38, sellingDiscountType:'fixed', sellingDiscountValue:17, sellingPrice:55, stock:50 }
+        {
+          id: SAMPLE_ITEM_ID,
+          name:'Sample Item',
+          description:'Local sample inventory item (auto-replaced after server pull)',
+          category:'Sample',
+          actualBuyingPrice:100,
+          buyingDiscountType:'fixed',
+          buyingDiscountValue:0,
+          buyingPrice:100,
+          sellingDiscountType:'fixed',
+          sellingDiscountValue:0,
+          sellingPrice:120,
+          stock:10,
+          isSampleSeed:true,
+          updatedAt:new Date().toISOString(),
+          version:1
+        }
       ]);
     }
   }
