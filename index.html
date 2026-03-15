@@ -1297,8 +1297,11 @@
   }
 
   function renderBillingProducts() {
-    const categories = ['All', ...new Set(activeInventory().map(i => i.category))];
-    byId('billingCategoryFilter').innerHTML = categories.map(c => `<option>${c}</option>`).join('');
+    const categories = ['All', ...new Set(activeInventory().map(i => i.category).filter(Boolean))];
+    const categorySelect = byId('billingCategoryFilter');
+    const selectedCategory = categorySelect.value || 'All';
+    categorySelect.innerHTML = categories.map(c => `<option>${c}</option>`).join('');
+    categorySelect.value = categories.includes(selectedCategory) ? selectedCategory : 'All';
     refreshProductGrid();
   }
 
@@ -1611,6 +1614,15 @@
       totalDiscount > 0 ? `<p style="display:flex;justify-content:space-between"><span>Total Discount:</span><strong>${inr(totalDiscount)}</strong></p>` : ''
     ].join('');
 
+    const renderInvoiceDiscount = (item) => {
+      const qty = Math.max(1, +item.quantity || 1);
+      const lineGross = Math.max(0, qty * (+item.price || 0));
+      const lineDiscount = Math.max(0, +item.discount || 0);
+      if (lineDiscount <= 0 || lineGross <= 0) return inr(0);
+      const pct = Math.round((lineDiscount / lineGross) * 100);
+      return `${inr(lineDiscount)} (${pct}%)`;
+    };
+
     byId('printableInvoice').innerHTML = `
       <div class="invoice-inner">
       <div class="invoice-header-print"><div class="invoice-title-print" style="text-align:center; font-size:1.1rem; letter-spacing:.12em; font-weight:700; margin:4px 0 8px;">INVOICE</div><div class="invoice-head">
@@ -1636,7 +1648,7 @@
       <div class="invoice-body-print">
       <table>
         <thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Discount</th><th>Total</th></tr></thead>
-        <tbody>${inv.items.map(i => `<tr><td>${i.name}</td><td>${i.quantity}</td><td>${inr(i.price)}</td><td>${inr(i.discount)}</td><td>${inr(i.quantity*i.price - i.discount)}</td></tr>`).join('')}</tbody>
+        <tbody>${inv.items.map(i => `<tr><td>${i.name}</td><td>${i.quantity}</td><td>${inr(i.price)}</td><td>${renderInvoiceDiscount(i)}</td><td>${inr(i.quantity*i.price - i.discount)}</td></tr>`).join('')}</tbody>
       </table>
       </div>
       <div class="invoice-footer-print">
