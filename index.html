@@ -202,7 +202,7 @@
       .invoice-inner { width: 100%; height: 297mm; padding: 6mm 8mm; display:grid; grid-template-rows:auto 1fr auto; }
       #printableInvoice::before { display:none; }
       .invoice-header-print { position: static; padding: 6px 0; align-self: start; }
-      .invoice-body-print { margin-top: 4px; overflow: hidden; align-self: center; }
+      .invoice-body-print { margin-top: 4px; overflow: hidden; align-self: start; }
       .invoice-footer-print { position: static; margin-top: 4px; border-top:1px dashed #cbd5e1; padding-top: 4px; break-before: avoid-page; page-break-before: avoid; break-inside: avoid-page; page-break-inside: avoid; font-size: .9rem; line-height: 1.22; background:#fff; align-self: end; }
       .invoice-footer-print, .invoice-footer-print * { break-inside: avoid-page; page-break-inside: avoid; }
       .invoice-body-print table { width:100%; page-break-inside:auto; }
@@ -333,9 +333,10 @@
       <h2>Invoicing</h2>
       <div class="row no-print" style="margin-bottom:8px">
         <select id="businessProfileSelect" style="max-width:260px"></select>
-        <input id="companyName" value="Smart Inventory Pro Pvt. Ltd." style="max-width:260px" placeholder="Business Name" />
-        <input id="shopAddress" value="12 Market Road, Kolkata, West Bengal" style="max-width:420px" placeholder="Business Address" />
-        <input id="shopContact" value="9830012345" style="max-width:180px" placeholder="Business Contact" />
+        <input id="companyName" value="Aemm Gas Service" style="max-width:260px" placeholder="Business Name" />
+        <input id="shopAddress" value="VILL PADMALAVPUR, PO PADMALAVPUR PS AMDANGA, 743126" style="max-width:420px" placeholder="Business Address" />
+        <input id="shopContact" value="9123386785" style="max-width:180px" placeholder="Business Contact" />
+        <button class="btn ghost" id="saveBusinessBtn">Save Business</button>
         <button class="btn" id="printBtn">Print / Download PDF</button>
         <button class="btn ghost" id="editInvoiceBtn">Edit Invoice Items</button>
       </div>
@@ -438,6 +439,7 @@
   const inr = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(+n || 0).replace('₹', '₹ ');
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const SAMPLE_ITEM_ID = 'sample-local-item';
+  const DEFAULT_BUSINESS_ID = 'default-business-aemm-gas-service';
   const showToast = (msg) => {
     const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
     byId('toastWrap').appendChild(t); setTimeout(() => t.remove(), 2400);
@@ -658,7 +660,7 @@
         inventory: toSyncRows(state.inventory.filter(i => !isSampleInventoryItem(i)), 'id'),
         customers: toSyncRows(state.customers, 'id'),
         bills: toSyncRows(state.bills, 'id'),
-        businesses: toSyncRows(state.businesses, 'id'),
+        businesses: toSyncRows(state.businesses.filter(b => !isDefaultBusinessProfile(b)), 'id'),
         invoice_sync_queue: toSyncRows(state.invoiceSyncQueue, 'syncId')
       };
       const res = await apiPost('push', { changes });
@@ -832,8 +834,15 @@
   function seedBusinessProfiles() {
     if (!db.load(DB_KEYS.businesses).length) {
       db.save(DB_KEYS.businesses, [
-        { id: uid(), name:'Smart Inventory Pro Pvt. Ltd.', address:'12 Market Road, Kolkata, West Bengal', contact:'9830012345' },
-        { id: uid(), name:'AEMM Wholesale Traders', address:'18 Station Road, Howrah, West Bengal', contact:'9876543210' }
+        {
+          id: DEFAULT_BUSINESS_ID,
+          name:'Aemm Gas Service',
+          address:'VILL PADMALAVPUR, PO PADMALAVPUR PS AMDANGA, 743126',
+          contact:'9123386785',
+          isDefaultSeed:true,
+          updatedAt:new Date().toISOString(),
+          version:1
+        }
       ]);
     }
   }
@@ -890,14 +899,29 @@
     scheduleServerSync();
   }
 
+  function isDefaultBusinessProfile(b) {
+    return !!b && (b.id === DEFAULT_BUSINESS_ID || b.isDefaultSeed === true);
+  }
+
   function renderBusinessOptions() {
     const select = byId('businessProfileSelect');
-    select.innerHTML = '<option value="">Select Business</option>' + state.businesses.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+    select.innerHTML = '<option value="">Select Business</option>'
+      + state.businesses.map(b => `<option value="${b.id}">${b.name}</option>`).join('')
+      + '<option value="__new__">+ Create New Business</option>';
     const match = state.businesses.find(b => b.name === byId('companyName').value && b.address === byId('shopAddress').value);
     if (match) select.value = match.id;
   }
 
   function applyBusinessProfile(id) {
+    if (id === '__new__') {
+      byId('businessProfileSelect').value = '__new__';
+      byId('companyName').value = '';
+      byId('shopAddress').value = '';
+      byId('shopContact').value = '';
+      byId('companyName').focus();
+      renderInvoice();
+      return;
+    }
     const b = state.businesses.find(x => x.id === id);
     if (!b) return;
     byId('companyName').value = b.name;
@@ -906,16 +930,23 @@
     renderInvoice();
   }
 
-  function upsertBusinessProfileFromInputs() {
+  function saveBusinessProfileFromInputs() {
     const name = byId('companyName').value.trim();
     const address = byId('shopAddress').value.trim();
     const contact = byId('shopContact').value.trim();
-    if (!name || !address) return;
+    if (!name || !address) return showToast('Business name and address are required');
     const existing = state.businesses.find(b => b.name === name && b.address === address);
-    if (existing) existing.contact = contact;
-    else state.businesses.unshift({ id: uid(), name, address, contact });
+    if (existing) {
+      existing.contact = contact;
+      showToast('Business updated');
+    } else {
+      state.businesses.unshift({ id: uid(), name, address, contact });
+      showToast('Business saved');
+    }
     persistBusinesses();
     renderBusinessOptions();
+    const selected = state.businesses.find(b => b.name === name && b.address === address);
+    if (selected) byId('businessProfileSelect').value = selected.id;
   }
 
   function queueInvoiceForServerSync(inv, action = 'print_or_download') {
@@ -1008,7 +1039,7 @@
       html, body { width: 210mm; min-height: 297mm; height: auto; margin: 0; padding: 0; }
       #printableInvoice { width: 210mm; height: 297mm; max-height: 297mm; overflow: hidden; margin:0; padding:0; }
       .invoice-header-print { align-self: start; }
-      .invoice-body-print { align-self: center; overflow: hidden; }
+      .invoice-body-print { align-self: start; overflow: hidden; }
       .invoice-footer-print { align-self: end; break-before: avoid-page; page-break-before: avoid; break-inside: avoid-page; page-break-inside: avoid; }
       .invoice-footer-print, .invoice-footer-print * { break-inside: avoid-page; page-break-inside: avoid; }
     }
@@ -1576,7 +1607,7 @@
           <h2 style="margin:8px 0 0">${byId('companyName').value}</h2>
           <small class="muted">Professional Billing Invoice</small>
           <p class="muted" style="margin:6px 0 4px">${byId('shopAddress').value}</p>
-          <p class="muted" style="margin:0 0 12px"><strong>Contact:</strong> ${byId('shopContact').value || '-'}</p>
+          <p class="muted" style="margin:0 0 12px">${byId('shopContact').value || '-'}</p>
           <div class="bill-to-box">
             <p><strong>Bill To</strong></p>
             <p><strong>Name:</strong> ${inv.customer.name}</p>
@@ -1683,9 +1714,10 @@
   });
   byId('editInvoiceBtn').addEventListener('click', editCurrentInvoiceItems);
   byId('businessProfileSelect').addEventListener('change', (e) => applyBusinessProfile(e.target.value));
-  byId('companyName').addEventListener('input', () => { upsertBusinessProfileFromInputs(); renderInvoice(); });
-  byId('shopAddress').addEventListener('input', () => { upsertBusinessProfileFromInputs(); renderInvoice(); });
-  byId('shopContact').addEventListener('input', () => { upsertBusinessProfileFromInputs(); renderInvoice(); });
+  byId('saveBusinessBtn').addEventListener('click', saveBusinessProfileFromInputs);
+  byId('companyName').addEventListener('input', renderInvoice);
+  byId('shopAddress').addEventListener('input', renderInvoice);
+  byId('shopContact').addEventListener('input', renderInvoice);
   const appShell = document.querySelector('.app');
   const sidebarEl = document.querySelector('.sidebar');
   sidebarEl.addEventListener('mouseenter', () => appShell.classList.add('sidebar-expanded'));
