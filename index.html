@@ -127,6 +127,8 @@
     .selling-price { font-weight: 800; color: #b91c1c; background: #fee2e2; border-radius: 8px; padding: 2px 6px; display: inline-block; }
     .buying-price-blur { filter: blur(4px); transition: filter .18s ease; cursor: help; user-select: none; }
     .buying-price-blur:hover, .buying-price-blur:focus { filter: blur(0); }
+    .sensitive-price-blur { filter: blur(4px); transition: filter .18s ease; cursor: help; user-select: none; }
+    .sensitive-price-blur:hover, .sensitive-price-blur:focus { filter: blur(0); }
     .billing-wrap { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; align-items: start; }
     .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
     .product-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; cursor: pointer; transition: var(--transition); }
@@ -364,7 +366,7 @@
   <p id="itemModalAlert" class="dialog-note">Create a new inventory item record.</p>
   <form id="itemForm" class="form-grid">
     <input class="full" name="name" placeholder="Item Name" required />
-    <textarea class="full" name="description" placeholder="Description" required></textarea>
+    <textarea class="full" name="description" placeholder="Description" required>no desc</textarea>
     <select name="category" id="itemCategorySelect" required>
       <option value="">Select Category</option>
       <option value="__new__">+ Create New Category</option>
@@ -408,7 +410,7 @@
       <input type="number" step="0.01" min="0" name="profitValue" placeholder="Profit Value" value="0" />
     </div>
 
-    <input type="number" min="0" name="stock" placeholder="Stock Quantity" required />
+    <input type="number" min="0" name="stock" placeholder="Stock Quantity" value="0" required />
     <div class="full row"><button class="btn" type="submit">Save</button><button class="btn ghost" type="button" data-close="itemModal">Cancel</button></div>
   </form>
 </div></div>
@@ -1188,7 +1190,7 @@
     byId('inventoryTableBody').innerHTML = rows.map(i => `
       <tr>
         <td>${i.name}</td><td>${i.description}</td><td><span class="pill">${i.category}</span></td>
-        <td>${inr(i.actualBuyingPrice)}</td><td>${i.buyingDiscountType === 'percent' ? i.buyingDiscountValue + '%' : inr(i.buyingDiscountValue)}</td><td><span class='buying-price-blur' tabindex='0' title='Hover to reveal buying price'>${inr(i.buyingPrice)}</span></td><td>${i.sellingDiscountType === 'percent' ? i.sellingDiscountValue + '%' : inr(i.sellingDiscountValue)}</td><td><span class='selling-price'>${inr(i.sellingPrice)}</span></td><td>${i.stock}</td>
+        <td><span class='sensitive-price-blur' tabindex='0' title='Hover to reveal MRP'>${inr(i.actualBuyingPrice)}</span></td><td><span class='sensitive-price-blur' tabindex='0' title='Hover to reveal buy discount'>${i.buyingDiscountType === 'percent' ? i.buyingDiscountValue + '%' : inr(i.buyingDiscountValue)}</span></td><td><span class='buying-price-blur' tabindex='0' title='Hover to reveal buying price'>${inr(i.buyingPrice)}</span></td><td>${i.sellingDiscountType === 'percent' ? i.sellingDiscountValue + '%' : inr(i.sellingDiscountValue)}</td><td><span class='selling-price'>${inr(i.sellingPrice)}</span></td><td>${i.stock}</td>
         <td><div class="actions"><button class="btn ghost" onclick="openItemModal('${i.id}')">Edit</button><button class="btn danger" onclick="deleteItem('${i.id}')">Delete</button></div></td>
       </tr>
     `).join('') || `<tr><td colspan="10" class="muted">No inventory records found.</td></tr>`;
