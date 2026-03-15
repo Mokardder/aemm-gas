@@ -1335,7 +1335,7 @@
       existing.quantity += qty;
       updateCartDiscount(existing.id, existing.discountValue || 0);
     } else {
-      state.currentCart.push({ id: p.id, name: p.name, price: p.sellingPrice || p.actualBuyingPrice, quantity: qty, discountType:'fixed', discountValue:0, discount:0, inventoryDiscount: 0, mrp: p.actualBuyingPrice || p.sellingPrice });
+      state.currentCart.push({ id: p.id, name: p.name, price: p.actualBuyingPrice || p.sellingPrice, quantity: qty, discountType: p.sellingDiscountType || 'fixed', discountValue: Math.max(0, +p.sellingDiscountValue || 0), discount:0, mrp: p.actualBuyingPrice || p.sellingPrice });
     }
     updateCartDiscount(p.id, state.currentCart.find(c => c.id === p.id).discountValue || 0);
     closeModal('productModal'); renderCart(); showToast('Added to cart');
@@ -1350,9 +1350,9 @@
       <div class="cart-item">
         <strong>${c.name}</strong>
         <input type="number" min="1" value="${qty}" onchange="updateCartQty('${c.id}', this.value)" />
-        <span class='selling-price'>${inr(c.price)}</span>
-        <span class='muted'>${inr(c.inventoryDiscount || 0)} base</span>
-        <span class="row"><select onchange="updateCartDiscountType('${c.id}', this.value)" style="width:58px"><option value="fixed" ${c.discountType==='fixed'?'selected':''}>₹</option><option value="percent" ${c.discountType==='percent'?'selected':''}>%</option></select><input type="number" min="0" value="${discountValue}" onchange="updateCartDiscount('${c.id}', this.value)" title="Per-item discount" style="width:70px" /></span>
+        <span>${inr(c.price)}</span>
+        <span class='muted'>Sell Disc</span>
+        <span class="row"><select onchange="updateCartDiscountType('${c.id}', this.value)" style="width:58px"><option value="fixed" ${c.discountType==='fixed'?'selected':''}>₹</option><option value="percent" ${c.discountType==='percent'?'selected':''}>%</option></select><input type="number" min="0" value="${discountValue}" onchange="updateCartDiscount('${c.id}', this.value)" title="Sell discount per item" style="width:70px" /></span>
         <button class="btn danger" onclick="removeCartItem('${c.id}')">X</button>
       </div>
     `;
@@ -1378,11 +1378,10 @@
     const item = state.currentCart.find(c => c.id === id);
     item.discountValue = Math.max(0, +value || 0);
     const maxLine = item.price * item.quantity;
-    const manualDiscount = item.discountType === 'percent'
+    const lineDiscount = item.discountType === 'percent'
       ? Math.min(maxLine, maxLine * Math.min(item.discountValue, 100) / 100)
-      : Math.min(maxLine, item.discountValue);
-    const baseDiscount = (item.inventoryDiscount || 0) * item.quantity;
-    item.discount = Math.min(maxLine, manualDiscount + baseDiscount);
+      : Math.min(maxLine, (item.discountValue || 0) * item.quantity);
+    item.discount = Math.min(maxLine, lineDiscount);
     calculateTotals();
   }
   function removeCartItem(id) {
@@ -1481,7 +1480,7 @@
     });
     persistInventory();
 
-    state.currentCart = inv.items.map(i => ({ ...i, inventoryDiscount: 0 }));
+    state.currentCart = inv.items.map(i => ({ ...i, discountType: i.discountType || 'fixed', discountValue: Math.max(0, +i.discountValue || 0) }));
     byId('billDiscountType').value = inv.billDiscountType || 'fixed';
     byId('billDiscountValue').value = inv.billDiscountValue || 0;
     byId('gstInput').value = inv.gstPercent || 0;
@@ -1637,7 +1636,7 @@
       <div class="invoice-body-print">
       <table>
         <thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Discount</th><th>Total</th></tr></thead>
-        <tbody>${inv.items.map(i => `<tr><td>${i.name}</td><td>${i.quantity}</td><td>${inr(i.price)}</td><td>${inr(i.discount)}${(i.inventoryDiscount||0)>0 ? `<br><small class='muted'>Incl. MRP Disc ${inr((i.inventoryDiscount||0)*i.quantity)}</small>`:''}</td><td>${inr(i.quantity*i.price - i.discount)}</td></tr>`).join('')}</tbody>
+        <tbody>${inv.items.map(i => `<tr><td>${i.name}</td><td>${i.quantity}</td><td>${inr(i.price)}</td><td>${inr(i.discount)}</td><td>${inr(i.quantity*i.price - i.discount)}</td></tr>`).join('')}</tbody>
       </table>
       </div>
       <div class="invoice-footer-print">
