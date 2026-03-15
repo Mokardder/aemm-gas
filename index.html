@@ -1619,7 +1619,8 @@
       const lineGross = Math.max(0, qty * (+item.price || 0));
       const lineDiscount = Math.max(0, +item.discount || 0);
       if (lineDiscount <= 0 || lineGross <= 0) return inr(0);
-      const pct = Math.round((lineDiscount / lineGross) * 100);
+      if ((item.discountType || 'fixed') !== 'percent') return inr(lineDiscount);
+      const pct = Math.round((+item.discountValue || (lineDiscount / lineGross) * 100) * 100) / 100;
       return `${inr(lineDiscount)} (${pct}%)`;
     };
 
