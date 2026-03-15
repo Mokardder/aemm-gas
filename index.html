@@ -603,7 +603,7 @@
     updateSyncStatusChip('syncing');
     try {
       const changes = {
-        inventory: toSyncRows(state.inventory, 'id'),
+        inventory: toSyncRows(state.inventory.filter(i => !isSampleInventoryItem(i)), 'id'),
         customers: toSyncRows(state.customers, 'id'),
         bills: toSyncRows(state.bills, 'id'),
         businesses: toSyncRows(state.businesses, 'id'),
@@ -778,6 +778,10 @@
 
   function activeInventory() {
     return state.inventory.filter(i => !i.deleted);
+  }
+
+  function isSampleInventoryItem(item) {
+    return !!item && (item.id === SAMPLE_ITEM_ID || item.isSampleSeed === true);
   }
 
   function persistInventory() {
