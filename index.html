@@ -257,6 +257,7 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor"/><path d="M20 20l-4-4" stroke="currentColor"/></svg>
           <input id="inventorySearch" placeholder="Search products..." />
         </div>
+        <select id="inventoryCategoryFilter" style="max-width:220px"></select>
         <button class="btn" id="addItemBtn">Add New Item</button>
       </div>
       <div style="overflow:auto">
@@ -1186,7 +1187,14 @@
 
   function renderInventory() {
     const q = byId('inventorySearch').value.toLowerCase();
-    const rows = activeInventory().filter(i => `${i.name} ${i.description} ${i.category}`.toLowerCase().includes(q));
+    const categories = ['All', ...new Set(activeInventory().map(i => i.category).filter(Boolean))];
+    const categorySelect = byId('inventoryCategoryFilter');
+    const selectedCategory = categorySelect.value || 'All';
+    categorySelect.innerHTML = categories.map(c => `<option>${c}</option>`).join('');
+    categorySelect.value = categories.includes(selectedCategory) ? selectedCategory : 'All';
+
+    const category = categorySelect.value || 'All';
+    const rows = activeInventory().filter(i => (category === 'All' || i.category === category) && `${i.name} ${i.description} ${i.category}`.toLowerCase().includes(q));
     byId('inventoryTableBody').innerHTML = rows.map(i => `
       <tr>
         <td>${i.name}</td><td>${i.description}</td><td><span class="pill">${i.category}</span></td>
@@ -1663,6 +1671,7 @@
   document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(b.dataset.close)));
 
   byId('inventorySearch').addEventListener('input', renderInventory);
+  byId('inventoryCategoryFilter').addEventListener('change', renderInventory);
   byId('addItemBtn').addEventListener('click', () => openItemModal());
   byId('itemCategorySelect').addEventListener('change', toggleNewCategoryInput);
   document.querySelectorAll('.pricing-tab-btn').forEach(btn => btn.addEventListener('click', () => setPricingMode(btn.dataset.pricingMode)));
