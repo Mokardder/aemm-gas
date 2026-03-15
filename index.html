@@ -157,6 +157,11 @@
     .form-grid .full { grid-column: 1/-1; }
     .toast-wrap { position: fixed; right: 16px; top: 16px; display: grid; gap: 8px; z-index: 20; }
     .toast { background: #0f172a; color: #fff; padding: 10px 12px; border-radius: 10px; box-shadow: var(--shadow); }
+    .sync-indicator { position: fixed; right: 16px; top: 16px; z-index: 30; display: none; align-items: center; gap: 8px; background: #0f172a; color: #fff; border-radius: 999px; padding: 8px 12px; box-shadow: var(--shadow); font-size: .82rem; }
+    .sync-indicator.active { display: inline-flex; }
+    .sync-indicator i { font-size: .9rem; }
+    .sync-indicator .spin { width: 12px; height: 12px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: syncSpin .8s linear infinite; }
+    @keyframes syncSpin { to { transform: rotate(360deg); } }
     .invoice-box { background: #fff; border:none; border-radius: 0; padding: 8px; box-shadow: none; min-height: calc(100vh - 140px); width: 100%; display:flex; flex-direction:column; position: relative; }
     #printableInvoice, .invoice-box { border: none !important; outline: none !important; }
     
@@ -419,6 +424,7 @@
   <div id="productModalBody"></div>
 </div></div>
 
+<div class="sync-indicator" id="syncIndicator"><span class="spin"></span><i id="syncIndicatorIcon" class="fa-solid fa-cloud-arrow-up"></i><span id="syncIndicatorText">Syncing...</span></div>
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
@@ -436,6 +442,40 @@
     const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
     byId('toastWrap').appendChild(t); setTimeout(() => t.remove(), 2400);
   };
+
+  const syncActivity = { active: 0, kind: 'upload' };
+
+  function updateSyncIndicator() {
+    const wrap = byId('syncIndicator');
+    const icon = byId('syncIndicatorIcon');
+    const text = byId('syncIndicatorText');
+    if (!wrap || !icon || !text) return;
+
+    if (syncActivity.active > 0) {
+      wrap.classList.add('active');
+      if (syncActivity.kind === 'download') {
+        icon.className = 'fa-solid fa-cloud-arrow-down';
+        text.textContent = 'Pulling...';
+      } else {
+        icon.className = 'fa-solid fa-cloud-arrow-up';
+        text.textContent = 'Pushing...';
+      }
+      return;
+    }
+
+    wrap.classList.remove('active');
+  }
+
+  function beginSyncActivity(kind = 'upload') {
+    syncActivity.active += 1;
+    syncActivity.kind = kind;
+    updateSyncIndicator();
+  }
+
+  function endSyncActivity() {
+    syncActivity.active = Math.max(0, syncActivity.active - 1);
+    updateSyncIndicator();
+  }
 
   const db = {
     load(key, fallback = []) {
@@ -538,61 +578,71 @@
   const apiGet = async (action, payload = {}) => {
     const query = new URLSearchParams({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload }).toString();
     const url = `${SYNC_CONFIG.apiUrl}?${query}`;
-    console.log('[SYNC][GET][REQ]', { action, payload, url });
-    if (location.protocol === 'file:') {
-      try {
-        const data = await apiGetViaFetch(url);
-        console.log('[SYNC][GET][RES][FETCH]', data);
-        return data;
-      } catch (fetchErr) {
-        console.warn('[SYNC][GET][FETCH][FAIL]', fetchErr);
+    beginSyncActivity('download');
+    try {
+      console.log('[SYNC][GET][REQ]', { action, payload, url });
+      if (location.protocol === 'file:') {
         try {
-          const data = await apiGetViaJsonp(url);
-          console.log('[SYNC][GET][RES][JSONP]', data);
+          const data = await apiGetViaFetch(url);
+          console.log('[SYNC][GET][RES][FETCH]', data);
           return data;
-        } catch (jsonpErr) {
-          const skipped = {
-            ok:false,
-            skipped:true,
-            reason:'pull_unavailable_on_file_origin',
-            message:`fetch:${String(fetchErr)} | jsonp:${String(jsonpErr)}`
-          };
-          console.log('[SYNC][GET][RES]', skipped);
-          return skipped;
+        } catch (fetchErr) {
+          console.warn('[SYNC][GET][FETCH][FAIL]', fetchErr);
+          try {
+            const data = await apiGetViaJsonp(url);
+            console.log('[SYNC][GET][RES][JSONP]', data);
+            return data;
+          } catch (jsonpErr) {
+            const skipped = {
+              ok:false,
+              skipped:true,
+              reason:'pull_unavailable_on_file_origin',
+              message:`fetch:${String(fetchErr)} | jsonp:${String(jsonpErr)}`
+            };
+            console.log('[SYNC][GET][RES]', skipped);
+            return skipped;
+          }
         }
       }
+      const data = await apiGetViaFetch(url);
+      console.log('[SYNC][GET][RES]', data);
+      return data;
+    } finally {
+      endSyncActivity();
     }
-    const data = await apiGetViaFetch(url);
-    console.log('[SYNC][GET][RES]', data);
-    return data;
   };
 
   const apiPost = async (action, payload = {}) => {
     const reqBody = { action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload };
     const body = JSON.stringify(reqBody);
-    console.log('[SYNC][POST][REQ]', { action, payload: reqBody, url: SYNC_CONFIG.apiUrl });
-    if (location.protocol === 'file:') {
-      try {
-        const res = await fetch(SYNC_CONFIG.apiUrl, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body
-        });
-        const data = await res.json();
-        console.log('[SYNC][POST][RES][FETCH]', data);
-        return data;
-      } catch (fetchErr) {
-        console.warn('[SYNC][POST][FETCH][FAIL]', fetchErr);
-        await fetch(SYNC_CONFIG.apiUrl, { method:'POST', mode:'no-cors', headers:{ 'Content-Type':'text/plain;charset=UTF-8' }, body });
-        const opaqueRes = { ok:true, opaque:true, serverTime:new Date().toISOString() };
-        console.log('[SYNC][POST][RES][OPAQUE]', opaqueRes);
-        return opaqueRes;
+    beginSyncActivity('upload');
+    try {
+      console.log('[SYNC][POST][REQ]', { action, payload: reqBody, url: SYNC_CONFIG.apiUrl });
+      if (location.protocol === 'file:') {
+        try {
+          const res = await fetch(SYNC_CONFIG.apiUrl, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+          });
+          const data = await res.json();
+          console.log('[SYNC][POST][RES][FETCH]', data);
+          return data;
+        } catch (fetchErr) {
+          console.warn('[SYNC][POST][FETCH][FAIL]', fetchErr);
+          await fetch(SYNC_CONFIG.apiUrl, { method:'POST', mode:'no-cors', headers:{ 'Content-Type':'text/plain;charset=UTF-8' }, body });
+          const opaqueRes = { ok:true, opaque:true, serverTime:new Date().toISOString() };
+          console.log('[SYNC][POST][RES][OPAQUE]', opaqueRes);
+          return opaqueRes;
+        }
       }
+      return fetch(SYNC_CONFIG.apiUrl, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+      }).then(r => r.json()).then(data => {
+        console.log('[SYNC][POST][RES]', data);
+        return data;
+      });
+    } finally {
+      endSyncActivity();
     }
-    return fetch(SYNC_CONFIG.apiUrl, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body
-    }).then(r => r.json()).then(data => {
-      console.log('[SYNC][POST][RES]', data);
-      return data;
-    });
   };
 
   async function pushAllToServer() {
