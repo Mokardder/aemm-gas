@@ -124,6 +124,7 @@
     th { background: var(--surface-soft); color: var(--muted); font-weight: 600; }
     .actions { display: flex; gap: 8px; }
     .pill { background: #eaf2ff; color: #1d4ed8; border-radius: 999px; padding: 4px 10px; font-size: .78rem; }
+    .selling-price { font-weight: 800; color: #b91c1c; }
     .billing-wrap { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; align-items: start; }
     .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
     .product-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; cursor: pointer; transition: var(--transition); }
@@ -1185,7 +1186,7 @@
     byId('inventoryTableBody').innerHTML = rows.map(i => `
       <tr>
         <td>${i.name}</td><td>${i.description}</td><td><span class="pill">${i.category}</span></td>
-        <td>${inr(i.actualBuyingPrice)}</td><td>${i.buyingDiscountType === 'percent' ? i.buyingDiscountValue + '%' : inr(i.buyingDiscountValue)}</td><td>${inr(i.buyingPrice)}</td><td>${i.sellingDiscountType === 'percent' ? i.sellingDiscountValue + '%' : inr(i.sellingDiscountValue)}</td><td>${inr(i.sellingPrice)}</td><td>${i.stock}</td>
+        <td>${inr(i.actualBuyingPrice)}</td><td>${i.buyingDiscountType === 'percent' ? i.buyingDiscountValue + '%' : inr(i.buyingDiscountValue)}</td><td>${inr(i.buyingPrice)}</td><td>${i.sellingDiscountType === 'percent' ? i.sellingDiscountValue + '%' : inr(i.sellingDiscountValue)}</td><td><span class='selling-price'>${inr(i.sellingPrice)}</span></td><td>${i.stock}</td>
         <td><div class="actions"><button class="btn ghost" onclick="openItemModal('${i.id}')">Edit</button><button class="btn danger" onclick="deleteItem('${i.id}')">Delete</button></div></td>
       </tr>
     `).join('') || `<tr><td colspan="10" class="muted">No inventory records found.</td></tr>`;
@@ -1293,7 +1294,7 @@
     const q = byId('billingSearch').value.toLowerCase();
     const cat = byId('billingCategoryFilter').value || 'All';
     const items = activeInventory().filter(i => (cat === 'All' || i.category === cat) && i.name.toLowerCase().includes(q));
-    byId('productGrid').innerHTML = items.map(i => `<div class="product-card" onclick="openProductModal('${i.id}')"><strong>${i.name}</strong><p class="muted">${inr(i.sellingPrice)}</p><small>Stock: ${i.stock}</small></div>`).join('') || '<p class="muted">No products found.</p>';
+    byId('productGrid').innerHTML = items.map(i => `<div class="product-card" onclick="openProductModal('${i.id}')"><strong>${i.name}</strong><p class="selling-price">${inr(i.sellingPrice)}</p><small>Stock: ${i.stock}</small></div>`).join('') || '<p class="muted">No products found.</p>';
   }
 
   function openProductModal(id) {
@@ -1303,7 +1304,7 @@
     byId('productModalBody').innerHTML = `
       <p><strong>${p.name}</strong></p>
       <p class="muted">${p.description}</p>
-      <p>MRP: ${inr(p.actualBuyingPrice || p.sellingPrice)} | Selling: ${inr(p.sellingPrice)}</p>
+      <p>MRP: ${inr(p.actualBuyingPrice || p.sellingPrice)} | Selling: <span class='selling-price'>${inr(p.sellingPrice)}</span></p>
       <p>Available stock: ${p.stock}</p>
       <input id="addQty" type="number" min="1" max="${p.stock}" value="1" />
       <div class="row" style="margin-top:10px"><button class="btn" onclick="addToCart()">Add to Cart</button><button class="btn ghost" onclick="closeModal('productModal')">Cancel</button></div>
@@ -1337,7 +1338,7 @@
       <div class="cart-item">
         <strong>${c.name}</strong>
         <input type="number" min="1" value="${qty}" onchange="updateCartQty('${c.id}', this.value)" />
-        <span>${inr(c.price)}</span>
+        <span class='selling-price'>${inr(c.price)}</span>
         <span class='muted'>${inr(c.inventoryDiscount || 0)} base</span>
         <span class="row"><select onchange="updateCartDiscountType('${c.id}', this.value)" style="width:58px"><option value="fixed" ${c.discountType==='fixed'?'selected':''}>₹</option><option value="percent" ${c.discountType==='percent'?'selected':''}>%</option></select><input type="number" min="0" value="${discountValue}" onchange="updateCartDiscount('${c.id}', this.value)" title="Per-item discount" style="width:70px" /></span>
         <button class="btn danger" onclick="removeCartItem('${c.id}')">X</button>
