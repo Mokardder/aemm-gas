@@ -450,6 +450,8 @@
   let syncTimer = null;
   let syncInFlight = false;
   let pendingSync = false;
+  let autoSyncIntervalId = null;
+  let autoSyncCycleInFlight = false;
 
   function getLastSyncAt() {
     return localStorage.getItem(DB_KEYS.lastSyncAt) || '1970-01-01T00:00:00.000Z';
@@ -722,6 +724,35 @@
       updateSyncStatusChip('failed');
       showToast('Pull failed');
     }
+  }
+
+  async function runAutoSyncCycle(reason = 'interval') {
+    if (!canSyncRemote() || autoSyncCycleInFlight) return;
+    autoSyncCycleInFlight = true;
+    try {
+      console.log('[SYNC][AUTO][START]', { reason });
+      await pushAllToServer();
+      await pullFromServer();
+    } catch (err) {
+      console.warn('[SYNC][AUTO][FAIL]', { reason, err });
+      updateSyncStatusChip('failed');
+    } finally {
+      autoSyncCycleInFlight = false;
+    }
+  }
+
+  function setupAutoSync() {
+    if (!canSyncRemote()) return;
+    if (autoSyncIntervalId) clearInterval(autoSyncIntervalId);
+
+    runAutoSyncCycle('startup');
+    autoSyncIntervalId = setInterval(() => runAutoSyncCycle('interval'), 30000);
+
+    window.addEventListener('online', () => runAutoSyncCycle('online'));
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') runAutoSyncCycle('visible');
+    });
+    window.addEventListener('focus', () => runAutoSyncCycle('focus'));
   }
 
   function seedData() {
@@ -1620,8 +1651,7 @@
   loadState();
   renderAll();
   updateSyncStatusChip(location.protocol === 'file:' ? 'limited' : 'idle');
-  pullFromServer();
-  setInterval(() => { pushAllToServer(); pullFromServer(); }, 60000);
+  setupAutoSync();
 
   window.openItemModal = openItemModal;
   window.deleteItem = deleteItem;
