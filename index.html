@@ -120,14 +120,14 @@
       width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius);
       overflow: hidden; box-shadow: var(--shadow);
     }
-    th, td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; font-size: 0.92rem; }
+    th, td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; font-size: 0.92rem; vertical-align: middle; }
     th { background: var(--surface-soft); color: var(--muted); font-weight: 600; }
     .actions { display: flex; gap: 8px; }
     .pill { background: #eaf2ff; color: #1d4ed8; border-radius: 999px; padding: 4px 10px; font-size: .78rem; }
-    .selling-price { font-weight: 800; color: #b91c1c; background: #fee2e2; border-radius: 8px; padding: 2px 6px; display: inline-block; }
-    .buying-price-blur { filter: blur(4px); transition: filter .18s ease; cursor: help; user-select: none; }
+    .selling-price { font-weight: 800; color: #b91c1c; background: #fee2e2; border-radius: 8px; padding: 2px 6px; display: inline-flex; align-items: center; line-height: 1.1; vertical-align: middle; }
+    .buying-price-blur { filter: blur(4px); transition: filter .18s ease; cursor: help; user-select: none; display: inline-flex; align-items: center; line-height: 1.1; vertical-align: middle; }
     .buying-price-blur:hover, .buying-price-blur:focus { filter: blur(0); }
-    .sensitive-price-blur { filter: blur(4px); transition: filter .18s ease; cursor: help; user-select: none; }
+    .sensitive-price-blur { filter: blur(4px); transition: filter .18s ease; cursor: help; user-select: none; display: inline-flex; align-items: center; line-height: 1.1; vertical-align: middle; }
     .sensitive-price-blur:hover, .sensitive-price-blur:focus { filter: blur(0); }
     .billing-wrap { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; align-items: start; }
     .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
@@ -374,13 +374,13 @@
     <input type="text" name="newCategory" id="newCategoryInput" placeholder="Create New Category" style="display:none" />
 
     <div class="full pricing-tabs">
-      <button type="button" class="pricing-tab-btn active" data-pricing-mode="mrp_discount">MRP Adding</button>
-      <button type="button" class="pricing-tab-btn" data-pricing-mode="fixed_price">Fixed Buy/Sell</button>
+      <button type="button" class="pricing-tab-btn" data-pricing-mode="mrp_discount">MRP Adding</button>
+      <button type="button" class="pricing-tab-btn active" data-pricing-mode="fixed_price">Fixed Buy/Sell</button>
       <button type="button" class="pricing-tab-btn" data-pricing-mode="profit_margin">Profit Margin</button>
     </div>
-    <input type="hidden" name="pricingMode" value="mrp_discount" />
+    <input type="hidden" name="pricingMode" value="fixed_price" />
 
-    <div class="pricing-pane active" data-pane="mrp_discount">
+    <div class="pricing-pane" data-pane="mrp_discount">
       <input type="number" step="0.01" min="0" name="actualBuyingPrice" placeholder="MRP / Actual Price" />
       <select name="buyingDiscountType">
         <option value="percent">Buying Discount %</option>
@@ -396,7 +396,7 @@
       <input type="number" step="0.01" min="0" name="sellingPrice" placeholder="Selling Price (Auto)" readonly required />
     </div>
 
-    <div class="pricing-pane" data-pane="fixed_price">
+    <div class="pricing-pane active" data-pane="fixed_price">
       <input type="number" step="0.01" min="0" name="fixedBuyingPrice" placeholder="Fixed Buying Price" value="0" />
       <input type="number" step="0.01" min="0" name="fixedSellingPrice" placeholder="Fixed Selling Price" value="0" />
     </div>
@@ -1270,7 +1270,7 @@
       toggleNewCategoryInput();
       setPricingMode(p.pricingMode || 'mrp_discount');
     } else {
-      setPricingMode('mrp_discount');
+      setPricingMode('fixed_price');
     }
     updateItemFormComputedPrices();
     m.classList.add('active');
