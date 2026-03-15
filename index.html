@@ -569,10 +569,20 @@
     const body = JSON.stringify(reqBody);
     console.log('[SYNC][POST][REQ]', { action, payload: reqBody, url: SYNC_CONFIG.apiUrl });
     if (location.protocol === 'file:') {
-      await fetch(SYNC_CONFIG.apiUrl, { method:'POST', mode:'no-cors', headers:{ 'Content-Type':'text/plain;charset=UTF-8' }, body });
-      const opaqueRes = { ok:true, opaque:true, serverTime:new Date().toISOString() };
-      console.log('[SYNC][POST][RES]', opaqueRes);
-      return opaqueRes;
+      try {
+        const res = await fetch(SYNC_CONFIG.apiUrl, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+        });
+        const data = await res.json();
+        console.log('[SYNC][POST][RES][FETCH]', data);
+        return data;
+      } catch (fetchErr) {
+        console.warn('[SYNC][POST][FETCH][FAIL]', fetchErr);
+        await fetch(SYNC_CONFIG.apiUrl, { method:'POST', mode:'no-cors', headers:{ 'Content-Type':'text/plain;charset=UTF-8' }, body });
+        const opaqueRes = { ok:true, opaque:true, serverTime:new Date().toISOString() };
+        console.log('[SYNC][POST][RES][OPAQUE]', opaqueRes);
+        return opaqueRes;
+      }
     }
     return fetch(SYNC_CONFIG.apiUrl, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body
@@ -599,7 +609,8 @@
         invoice_sync_queue: toSyncRows(state.invoiceSyncQueue, 'syncId')
       };
       const res = await apiPost('push', { changes });
-      if (res && res.ok) { setLastSyncAt(res.serverTime || new Date().toISOString()); updateSyncStatusChip('synced'); }
+      if (res && res.ok && !res.opaque) { setLastSyncAt(res.serverTime || new Date().toISOString()); updateSyncStatusChip('synced'); }
+      else if (res && res.opaque) { updateSyncStatusChip('limited'); }
     } catch (err) {
       console.warn('Sync push failed', err);
       updateSyncStatusChip('failed');
