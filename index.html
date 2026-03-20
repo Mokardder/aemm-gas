@@ -1,292 +1,1778 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Portfolio</title>
-    <link rel="stylesheet" href="style.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inventory Management + Billing System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --surface: #ffffff;
+      --surface-soft: #f8f9ff;
+      --text: #1f2a44;
+      --muted: #6b7280;
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --accent: #22c55e;
+      --danger: #ef4444;
+      --border: #e5e7eb;
+      --shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
+      --radius: 14px;
+      --transition: all 0.25s ease;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 82px 1fr;
+      min-height: 100vh;
+      transition: var(--transition);
+    }
+    .app.sidebar-expanded { grid-template-columns: 260px 1fr; }
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      background: linear-gradient(180deg, #0f172a, #1e293b);
+      color: #fff;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow: hidden;
+      transition: var(--transition);
+    }
+    .sidebar-toggle { border:none; background:rgba(148,163,184,.2); color:#fff; border-radius:10px; width:36px; height:36px; cursor:pointer; }
+    .nav-btn i { width:18px; text-align:center; }
+    .app:not(.sidebar-expanded) .sidebar { padding: 20px 10px; }
+    .app:not(.sidebar-expanded) .brand span, .app:not(.sidebar-expanded) .nav-btn span { display:none; }
+    .app:not(.sidebar-expanded) .nav-btn { justify-content:center; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
+    .nav-btn {
+      width: 100%;
+      border: none;
+      background: transparent;
+      color: #dbeafe;
+      text-align: left;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.95rem;
+    }
+    .nav-btn:hover, .nav-btn.active { background: rgba(59,130,246,0.25); color: #fff; }
+    .main { padding: 20px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .grid { display: grid; gap: 16px; }
+    .cards { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      border: 1px solid var(--border);
+      transition: var(--transition);
+    }
+    .card:hover { transform: translateY(-3px); }
+    .label { font-size: 0.85rem; color: var(--muted); margin: 0 0 6px; }
+    .value { font-size: 1.35rem; font-weight: 700; margin: 0; }
+    .section-title { margin: 20px 0 10px; }
+    .btn {
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .btn:hover { background: var(--primary-dark); }
+    .btn.ghost { background: #e8efff; color: var(--primary-dark); }
+    .btn.danger { background: var(--danger); }
+    .btn.success { background: var(--accent); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      transition: var(--transition);
+      background: #fff;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.14); }
+    .toolbar { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+    .sync-chip { border:1px solid var(--border); background:#eef2ff; color:#1e3a8a; border-radius:999px; padding:6px 10px; font-size:.8rem; }
+    .search-wrap { position: relative; min-width: 260px; flex: 1; }
+    .search-wrap svg { position: absolute; left: 10px; top: 10px; color: var(--muted); }
+    .search-wrap input { padding-left: 34px; }
+    table {
+      width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius);
+      overflow: hidden; box-shadow: var(--shadow);
+    }
+    th, td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; font-size: 0.92rem; vertical-align: middle; }
+    th { background: var(--surface-soft); color: var(--muted); font-weight: 600; }
+    .actions { display: flex; gap: 8px; }
+    .pill { background: #eaf2ff; color: #1d4ed8; border-radius: 999px; padding: 4px 10px; font-size: .78rem; }
+    .selling-price { font-weight: 800; color: #b91c1c; background: #fee2e2; border-radius: 8px; padding: 2px 6px; display: inline-block; line-height: 1.2; vertical-align: middle; letter-spacing: 0; font-variant-numeric: tabular-nums; font-family: 'Noto Sans', 'Segoe UI Symbol', Inter, Arial, sans-serif; }
+    .buying-price-blur { filter: blur(4px); transition: filter .18s ease; cursor: help; user-select: none; display: inline-flex; align-items: center; line-height: 1.1; vertical-align: middle; }
+    .buying-price-blur:hover, .buying-price-blur:focus { filter: blur(0); }
+    .sensitive-price-blur { filter: blur(4px); transition: filter .18s ease; cursor: help; user-select: none; display: inline-flex; align-items: center; line-height: 1.1; vertical-align: middle; }
+    .sensitive-price-blur:hover, .sensitive-price-blur:focus { filter: blur(0); }
+    .billing-wrap { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; align-items: start; }
+    .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+    .product-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; cursor: pointer; transition: var(--transition); }
+    .product-card:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+    .sticky { position: sticky; top: 10px; }
+    .cart-item { display: grid; grid-template-columns: 1fr 80px 90px 110px 100px 70px; gap: 8px; align-items: center; margin: 6px 0; }
+    .totals p { margin: 6px 0; display: flex; justify-content: space-between; }
+    .totals .grand { font-weight: 700; font-size: 1.1rem; }
+    .radio-group { display: flex; gap: 16px; }
+    .customer-tabs { display:flex; gap:8px; margin-bottom:8px; }
+    .tab-chip { border:1px solid var(--border); background:#eef2ff; color:#1e3a8a; padding:6px 10px; border-radius:999px; cursor:pointer; font-size:.85rem; }
+    .tab-chip.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .customer-pane { display:none; }
+    .customer-pane.active { display:block; }
 
-    <style></style>
-  </head>
-
-  <body>
-    <nav class="navbar">
-      <ul class="nav-links">
-        <li><a href="#home">Home</a></li>
-        <li><a href="#projects">Projects</a></li>
-        <li><a href="#skills">Skills</a></li>
-        <li><a href="#news">News</a></li>
-        <li><a href="store.html">Store</a></li>
-        <li><a href="#contact">Contact</a></li>
-      </ul>
-    </nav>
-
-    <div class="gradient-bg">
-      <div class="container_hero">
-        <div class="header_container">
-          <p class="header_text">Aemm Gas Service</p>
-          <p class="sub_header_text">- A Service Of Excellence -</p>
-          <p class="header_text">Coming Soon</p>
-        </div>
-        <div class="icon_scoll_down">
-          <img src="assests/scoll_down.png" alt="" />
-        </div>
+    .modal {
+      position: fixed; inset: 0; display: none; place-items: center;
+      background: rgba(15,23,42,.45); z-index: 10;
+    }
+    .modal.active { display: grid; }
+    .modal-content {
+      width: min(680px, 94vw); background: #fff; border-radius: 14px; box-shadow: var(--shadow); padding: 16px;
+    }
+    .dialog-note { margin: -4px 0 12px; text-align: center; font-size: .78rem; color: var(--muted); letter-spacing: .01em; }
+    .pricing-tabs { display:flex; gap:8px; margin-bottom: 10px; }
+    .pricing-tab-btn { border:1px solid var(--border); background:#eef2ff; color:#1e3a8a; border-radius:999px; padding:6px 10px; cursor:pointer; font-size:.82rem; }
+    .pricing-tab-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .pricing-pane { display:none; }
+    .pricing-pane.active { display:contents; }
+    .form-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+    .form-grid .full { grid-column: 1/-1; }
+    .toast-wrap { position: fixed; right: 16px; top: 16px; display: grid; gap: 8px; z-index: 20; }
+    .toast { background: #0f172a; color: #fff; padding: 10px 12px; border-radius: 10px; box-shadow: var(--shadow); }
+    .sync-indicator { position: fixed; right: 16px; top: 16px; z-index: 30; display: none; align-items: center; gap: 8px; background: #0f172a; color: #fff; border-radius: 999px; padding: 8px 12px; box-shadow: var(--shadow); font-size: .82rem; }
+    .sync-indicator.active { display: inline-flex; }
+    .sync-indicator i { font-size: .9rem; }
+    .sync-indicator .spin { width: 12px; height: 12px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: syncSpin .8s linear infinite; }
+    @keyframes syncSpin { to { transform: rotate(360deg); } }
+    .invoice-box { background: #fff; border:none; border-radius: 0; padding: 8px; box-shadow: none; min-height: calc(100vh - 140px); width: 100%; display:flex; flex-direction:column; position: relative; }
+    #printableInvoice, .invoice-box { border: none !important; outline: none !important; }
+    
+    .invoice-box > * { position:relative; z-index:1; }
+    #invoicing.panel.active { display: flex; flex-direction: column; min-height: calc(100vh - 40px); }
+    #invoicing .invoice-box { flex: 1; min-height: calc(100vh - 180px); }
+    .invoice-head { border-bottom:1px dashed var(--border); padding-bottom: 12px; margin-bottom: 12px; }
+    .invoice-grid-head { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+    .invoice-col-right { text-align:right; }
+    .logo-ph { width:60px; height:60px; border:2px dashed #cbd5e1; border-radius: 10px; display:grid; place-items:center; color:#64748b; }
+    .muted { color: var(--muted); }
+    .bill-to-box { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
+    .bill-to-box p { margin: 4px 0; font-size: .88rem; }
+    .invoice-header-print, .invoice-body-print, .invoice-footer-print { border:none; border-radius:0; padding:6px 0; background:#fff; }
+    .invoice-body-print table { margin-top: 10px; }
+    .invoice-inner { padding: 8mm; display:flex; flex-direction:column; min-height: 100%; }
+    @media (max-width: 1024px) {
+      .billing-wrap { grid-template-columns: 1fr; }
+      .sticky { position: static; }
+    }
+    @media (max-width: 860px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; }
+      .form-grid { grid-template-columns: 1fr; }
+      .cart-item { grid-template-columns: 1fr; border:1px solid var(--border); border-radius: 10px; padding:8px; }
+    }
+    @media print {
+      @page { size: 210mm 297mm; margin: 0; }
+      html, body { width: 210mm; min-height: 297mm; height: auto; background:#fff; margin:0; padding:0; }
+      body { overflow: visible; }
+      * { box-sizing: border-box; }
+      .sidebar, .no-print { display: none !important; }
+      .panel { display: none !important; }
+      #invoicing.panel { display:block !important; }
+      .app { display:block !important; grid-template-columns: 1fr !important; }
+      .main { padding: 0 !important; margin: 0 !important; }
+      #printableInvoice { position: static; width: 210mm; height: 297mm; max-height: 297mm; box-shadow:none; border:none; display:block; overflow: hidden; margin:0; padding: 0; }
+      .invoice-inner { width: 100%; height: 297mm; padding: 6mm 8mm; display:grid; grid-template-rows:auto 1fr auto; }
+      #printableInvoice::before { display:none; }
+      .invoice-header-print { position: static; padding: 6px 0; align-self: start; }
+      .invoice-body-print { margin-top: 4px; overflow: hidden; align-self: start; }
+      .invoice-footer-print { position: static; margin-top: 4px; border-top:1px dashed #cbd5e1; padding-top: 4px; break-before: avoid-page; page-break-before: avoid; break-inside: avoid-page; page-break-inside: avoid; font-size: .9rem; line-height: 1.22; background:#fff; align-self: end; }
+      .invoice-footer-print, .invoice-footer-print * { break-inside: avoid-page; page-break-inside: avoid; }
+      .invoice-body-print table { width:100%; page-break-inside:auto; }
+      .invoice-body-print tr, .invoice-body-print td, .invoice-body-print th { page-break-inside:avoid; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar no-print">
+    <div class="row" style="justify-content:space-between">
+      <div class="brand">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2l9 4.5v11L12 22l-9-4.5v-11L12 2z" stroke="currentColor"/></svg>
+        <span>Smart Inventory Pro</span>
       </div>
-      <svg xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <filter id="goo">
-            <feGaussianBlur
-              in="SourceGraphic"
-              stdDeviation="10"
-              result="blur"
-            />
-            <feColorMatrix
-              in="blur"
-              mode="matrix"
-              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -8"
-              result="goo"
-            />
-            <feBlend in="SourceGraphic" in2="goo" />
-          </filter>
-        </defs>
-      </svg>
-
-      <div class="gradients-container">
-        <div class="g1"></div>
-        <div class="g2"></div>
-        <div class="g3"></div>
-        <div class="g4"></div>
-        <div class="g5"></div>
-        <div class="interactive"></div>
-      </div>
-
-      <!-- NOTICE (full-screen single notice) -->
-      <div class="notice" id="noticeContainer" role="dialog" aria-live="assertive" aria-modal="true" style="display:flex;">
-        <div class="notice-inner">
-          <div class="notice-single" id="noticeSingle">
-            <div class="notice-date" id="noticeDate">Nov 08, 2025</div>
-            <h2 class="notice-title" id="noticeTitle">Aemm Gas online store launching soon — discounts available!</h2>
-            <div class="notice-excerpt" id="noticeExcerpt">
-              First 100 customers get free cylinder safety check. Book now.
-            </div>
-            <a class="notice-link" id="noticeLink" href="#" target="_blank" rel="noopener">Learn more</a>
-          </div>
-          <button id="dismissNotice" class="notice-dismiss" aria-label="Dismiss notice">&times;</button>
-        </div>
-      </div>
+      <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar"><i class="fa-solid fa-bars"></i></button>
     </div>
+    <button class="nav-btn active" data-tab="dashboard"><i class="fa-solid fa-chart-line"></i> <span>Dashboard</span></button>
+    <button class="nav-btn" data-tab="inventory"><i class="fa-solid fa-boxes-stacked"></i> <span>Inventory</span></button>
+    <button class="nav-btn" data-tab="billing"><i class="fa-solid fa-cash-register"></i> <span>Billing / Sales</span></button>
+    <button class="nav-btn" data-tab="customers"><i class="fa-solid fa-users"></i> <span>Customers</span></button>
+    <button class="nav-btn" data-tab="invoicing"><i class="fa-solid fa-file-invoice"></i> <span>Invoicing</span></button>
+    <button class="nav-btn" data-tab="savedInvoices"><i class="fa-solid fa-receipt"></i> <span>Saved Invoices</span></button>
+  </aside>
 
-    <!-- App Overview -->
-    <div class="app_overview_container"></div>
-
-    <!-- Recent News Section -->
-    <section id="news" class="news-section">
-      <div class="container">
-        <h2 class="section-title">Recent News</h2>
-        <ul class="news-list">
-          <li class="news-item">
-            <h3>New Cylinder Safety Checks Launched</h3>
-            <p class="news-date">Nov 01, 2025</p>
-            <p class="news-excerpt">Aemm Gas Service introduces complimentary cylinder safety inspection for first 100 customers.</p>
-            <a class="news-readmore" href="#">Read more</a>
-          </li>
-
-          <li class="news-item">
-            <h3>Service Expansion in Dhaka Suburbs</h3>
-            <p class="news-date">Oct 20, 2025</p>
-            <p class="news-excerpt">We are expanding our same-day delivery and installation services to 5 new areas.</p>
-            <a class="news-readmore" href="#">Read more</a>
-          </li>
-
-          <li class="news-item">
-            <h3>Upcoming Store Opening</h3>
-            <p class="news-date">Oct 12, 2025</p>
-            <p class="news-excerpt">Aemm Gas online store will open soon with discounted home appliances and accessories.</p>
-            <a class="news-readmore" href="store.html">Visit Store</a>
-          </li>
-        </ul>
+  <main class="main">
+    <section id="dashboard" class="panel active">
+      <h2>Dashboard</h2>
+      <div class="grid cards" id="summaryCards"></div>
+      <h3 class="section-title">Reports</h3>
+      <div class="grid cards" id="reportCards"></div>
+      <h3 class="section-title">Quick Actions</h3>
+      <div class="row">
+        <button class="btn" id="qaAddItem"><i class="fa-solid fa-plus"></i> Add Inventory Item</button>
+        <button class="btn" id="qaCreateBill"><i class="fa-solid fa-file-invoice-dollar"></i> Create Bill</button>
+        <button class="btn" id="qaAddCustomer"><i class="fa-solid fa-user-plus"></i> Add Customer</button>
+        <button class="btn ghost" id="manualSyncBtn"><i class="fa-solid fa-rotate"></i> Sync Now</button>
+        <button class="btn ghost" id="manualPullBtn"><i class="fa-solid fa-download"></i> Pull Data</button>
+        <span class="sync-chip" id="syncStatusChip">Sync: idle</span>
       </div>
     </section>
 
-    <script src="script.js"></script>
-  </body>
-  <script>
-    // script.js
-    gsap.registerPlugin(ScrollTrigger);
+    <section id="inventory" class="panel">
+      <h2>Inventory</h2>
+      <div class="toolbar">
+        <div class="search-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor"/><path d="M20 20l-4-4" stroke="currentColor"/></svg>
+          <input id="inventorySearch" placeholder="Search products..." />
+        </div>
+        <select id="inventoryCategoryFilter" style="max-width:220px"></select>
+        <button class="btn" id="addItemBtn">Add New Item</button>
+      </div>
+      <div style="overflow:auto">
+        <table>
+          <thead>
+            <tr><th>Item Name</th><th>Description</th><th>Category</th><th>MRP (Actual)</th><th>Buy Discount</th><th>Net Buy Price</th><th>Sell Discount (on MRP)</th><th>Selling Price</th><th>Stock</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="inventoryTableBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-    // Navbar animation
-    gsap.from(".navbar", {
-      y: -100,
-      duration: 1,
-      ease: "power4.out",
-    });
+    <section id="billing" class="panel">
+      <h2>Billing / Sales</h2>
+      <div class="billing-wrap">
+        <div class="card">
+          <div class="row" style="justify-content:space-between">
+            <select id="billingCategoryFilter" style="max-width:220px"></select>
+            <div class="search-wrap" style="max-width:320px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor"/><path d="M20 20l-4-4" stroke="currentColor"/></svg>
+              <input id="billingSearch" placeholder="Search products" />
+            </div>
+          </div>
+          <div id="productGrid" class="products-grid" style="margin-top:12px"></div>
+        </div>
 
-    // Hero text animation
-    const heroTL = gsap.timeline();
-    heroTL
-      .from(".hero-title", {
-        opacity: 0,
-        y: 50,
-        duration: 1,
-        ease: "power4.out",
-      })
-      .from(".container_hero", {
-        opacity: 0,
-        y: 50,
-        duration: 1,
-        ease: "power4.out",
-      })
-      .from(".hero-subtitle", {
-        opacity: 0,
-        y: 30,
-        duration: 1.5,
-        ease: "power2.out",
-      });
+        <div class="card sticky">
+          <h3><i class="fa-solid fa-cart-shopping"></i> Cart</h3>
+          <div id="cartList"></div>
+          <div class="totals">
+            <p><span>Subtotal</span><strong id="subTotal">₹ 0.00</strong></p>
+            <p><span>Discount</span><strong id="totalDiscount">₹ 0.00</strong></p>
+            <p><span>Bill Discount</span><span class="row" style="justify-content:flex-end"><select id="billDiscountType" style="width:92px"><option value="fixed">₹</option><option value="percent">%</option></select><input id="billDiscountValue" type="number" min="0" value="0" style="width:90px"/></span></p>
+            <p><span>GST</span><span><input id="gstInput" type="number" value="0" min="0" max="50" style="width:70px"/> %</span></p>
+            <p class="grand"><span>Grand Total</span><strong id="grandTotal">₹ 0.00</strong></p>
+          </div>
+          <hr>
+          <h4><i class="fa-solid fa-user"></i> Customer</h4>
+          <div class="customer-tabs">
+            <button type="button" class="tab-chip active" data-customer-tab="regular">Regular</button>
+            <button type="button" class="tab-chip" data-customer-tab="saved">Saved Customer</button>
+          </div>
+          <div id="regularCustomerPane" class="customer-pane active">
+            <input id="walkInName" placeholder="Walk-in Customer Name" />
+            <input id="walkInPhone" placeholder="Phone Number" />
+            <textarea id="walkInAddress" placeholder="Address"></textarea>
+          </div>
+          <div id="savedCustomerPane" class="customer-pane">
+            <select id="savedCustomerSelect">
+              <option value="">Select Saved Customer</option>
+            </select>
+            <div class="search-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor"/><path d="M20 20l-4-4" stroke="currentColor"/></svg>
+              <input id="customerSearch" placeholder="Search saved customer" />
+            </div>
+          </div>
+          <h4><i class="fa-solid fa-wallet"></i> Payment</h4>
+          <div class="radio-group">
+            <label><input type="radio" name="paymentMode" value="Cash" checked /> Cash</label>
+            <label><input type="radio" name="paymentMode" value="Online" /> Online</label>
+          </div>
+          <button class="btn success" style="width:100%;margin-top:12px" id="proceedInvoice"><i class="fa-solid fa-file-circle-check"></i> Proceed to Invoice</button>
+        </div>
+      </div>
+    </section>
 
-    // Project cards animation
-    gsap.utils.toArray(".project-card").forEach((card, i) => {
-      gsap.from(card, {
-        scrollTrigger: {
-          trigger: card,
-          start: "top center+=100",
-        },
-        opacity: 0,
-        y: 50,
-        duration: 0.8,
-        delay: i * 0.2,
-      });
-    });
+    <section id="customers" class="panel">
+      <h2>Customers</h2>
+      <div class="row" style="margin-bottom:10px"><button class="btn" id="addCustomerBtn">Add Customer</button></div>
+      <div style="overflow:auto">
+        <table>
+          <thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Total Purchase</th><th>Actions</th></tr></thead>
+          <tbody id="customerTableBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-    // Skill bars animation
-    gsap.utils.toArray(".skill-bar").forEach((bar) => {
-      gsap.from(bar, {
-        scrollTrigger: {
-          trigger: bar,
-          start: "top center+=100",
-        },
-        scaleX: 0,
-        duration: 1.5,
-        ease: "power4.out",
-      });
-    });
+    <section id="invoicing" class="panel">
+      <h2>Invoicing</h2>
+      <div class="row no-print" style="margin-bottom:8px">
+        <select id="businessProfileSelect" style="max-width:260px"></select>
+        <input id="companyName" value="Aemm Gas Service" style="max-width:260px" placeholder="Business Name" />
+        <input id="shopAddress" value="VILL PADMALAVPUR, PO PADMALAVPUR PS AMDANGA, 743126" style="max-width:420px" placeholder="Business Address" />
+        <input id="shopContact" value="9123386785" style="max-width:180px" placeholder="Business Contact" />
+        <button class="btn ghost" id="saveBusinessBtn">Save Business</button>
+        <button class="btn" id="printBtn">Print / Download PDF</button>
+        <button class="btn ghost" id="editInvoiceBtn">Edit Invoice Items</button>
+      </div>
+      <div id="printableInvoice" class="invoice-box"></div>
+    </section>
 
-    // Contact form animation
-    gsap.from(".contact-form input, .contact-form textarea", {
-      scrollTrigger: {
-        trigger: ".contact-form",
-        start: "top center+=100",
-      },
-      opacity: 0,
-      y: 30,
-      stagger: 0.2,
-      duration: 0.8,
-    });
+    <section id="savedInvoices" class="panel">
+      <h2>Saved Invoices</h2>
+      <p class="muted" style="margin:-4px 0 10px">View all generated invoices and quickly reopen the latest copy in the Invoicing tab.</p>
+      <div style="overflow:auto">
+        <table>
+          <thead><tr><th>Invoice #</th><th>Date</th><th>Customer</th><th>Phone</th><th>Items</th><th>Payment</th><th>Total</th><th>Actions</th></tr></thead>
+          <tbody id="savedInvoicesTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
 
-    // Smooth scroll for navigation
-    document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
-      anchor.addEventListener("click", function (e) {
-        e.preventDefault();
-        gsap.to(window, {
-          duration: 1,
-          scrollTo: this.getAttribute("href"),
-          ease: "power2.inOut",
-        });
-      });
-    });
+<div class="modal" id="itemModal"><div class="modal-content">
+  <h3>Add Inventory Item</h3>
+  <p id="itemModalAlert" class="dialog-note">Create a new inventory item record.</p>
+  <form id="itemForm" class="form-grid">
+    <input class="full" name="name" placeholder="Item Name" required />
+    <textarea class="full" name="description" placeholder="Description" required>no desc</textarea>
+    <select name="category" id="itemCategorySelect" required>
+      <option value="">Select Category</option>
+      <option value="__new__">+ Create New Category</option>
+    </select>
+    <input type="text" name="newCategory" id="newCategoryInput" placeholder="Create New Category" style="display:none" />
 
-    // Hover effects for project cards
-    document.querySelectorAll(".project-card").forEach((card) => {
-      card.addEventListener("mouseenter", () => {
-        gsap.to(card, {
-          y: -10,
-          duration: 0.3,
-          ease: "power2.out",
-        });
-      });
+    <div class="full pricing-tabs">
+      <button type="button" class="pricing-tab-btn" data-pricing-mode="mrp_discount">MRP Adding</button>
+      <button type="button" class="pricing-tab-btn active" data-pricing-mode="fixed_price">Fixed Buy/Sell</button>
+      <button type="button" class="pricing-tab-btn" data-pricing-mode="profit_margin">Profit Margin</button>
+    </div>
+    <input type="hidden" name="pricingMode" value="fixed_price" />
 
-      card.addEventListener("mouseleave", () => {
-        gsap.to(card, {
-          y: 0,
-          duration: 0.3,
-          ease: "power2.out",
-        });
-      });
-    });
+    <div class="pricing-pane" data-pane="mrp_discount">
+      <input type="number" step="0.01" min="0" name="actualBuyingPrice" placeholder="MRP / Actual Price" />
+      <select name="buyingDiscountType">
+        <option value="percent">Buying Discount %</option>
+        <option value="fixed">Buying Discount ₹</option>
+      </select>
+      <input type="number" step="0.01" min="0" name="buyingDiscountValue" placeholder="Buying Discount Value" value="0" />
+      <input type="number" step="0.01" min="0" name="buyingPrice" placeholder="Net Buying Price (Auto)" readonly required />
+      <select name="sellingDiscountType">
+        <option value="percent">Selling Discount % (on MRP)</option>
+        <option value="fixed">Selling Discount ₹ (on MRP)</option>
+      </select>
+      <input type="number" step="0.01" min="0" name="sellingDiscountValue" placeholder="Selling Discount Value" value="0" />
+      <input type="number" step="0.01" min="0" name="sellingPrice" placeholder="Selling Price (Auto)" readonly required />
+    </div>
 
-    // Replace multiplicative API with single-notice setter
-    function setNotice({ title = "", date = "", excerpt = "", href = "" } = {}) {
-      const container = document.getElementById("noticeContainer");
-      if (!container) return;
-      const titleEl = document.getElementById("noticeTitle");
-      const dateEl = document.getElementById("noticeDate");
-      const excerptEl = document.getElementById("noticeExcerpt");
-      const linkEl = document.getElementById("noticeLink");
+    <div class="pricing-pane active" data-pane="fixed_price">
+      <input type="number" step="0.01" min="0" name="fixedBuyingPrice" placeholder="Fixed Buying Price" value="0" />
+      <input type="number" step="0.01" min="0" name="fixedSellingPrice" placeholder="Fixed Selling Price" value="0" />
+    </div>
 
-      if (dateEl) dateEl.textContent = date || "";
-      if (titleEl) titleEl.textContent = title || "";
-      if (excerptEl) {
-        excerptEl.innerHTML = excerpt || "";
+    <div class="pricing-pane" data-pane="profit_margin">
+      <input type="number" step="0.01" min="0" name="costPrice" placeholder="Cost / Buying Price" value="0" />
+      <select name="profitType">
+        <option value="percent">Profit %</option>
+        <option value="fixed">Profit ₹</option>
+      </select>
+      <input type="number" step="0.01" min="0" name="profitValue" placeholder="Profit Value" value="0" />
+    </div>
+
+    <input type="number" min="0" name="stock" placeholder="Stock Quantity" value="0" required />
+    <div class="full row"><button class="btn" type="submit">Save</button><button class="btn ghost" type="button" data-close="itemModal">Cancel</button></div>
+  </form>
+</div></div>
+
+<div class="modal" id="customerModal"><div class="modal-content">
+  <h3 id="customerModalTitle">Add Customer</h3>
+  <form id="customerForm" class="form-grid">
+    <input class="full" name="name" placeholder="Customer Name" required />
+    <input name="phone" placeholder="Phone" required />
+    <textarea class="full" name="address" placeholder="Address" required></textarea>
+    <div class="full row"><button class="btn" type="submit">Save</button><button class="btn ghost" type="button" data-close="customerModal">Cancel</button></div>
+  </form>
+</div></div>
+
+<div class="modal" id="productModal"><div class="modal-content">
+  <h3>Add Product to Cart</h3>
+  <div id="productModalBody"></div>
+</div></div>
+
+<div class="sync-indicator" id="syncIndicator"><span class="spin"></span><i id="syncIndicatorIcon" class="fa-solid fa-cloud-arrow-up"></i><span id="syncIndicatorText">Syncing...</span></div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+  const DB_KEYS = { inventory: 'ims_inventory', customers: 'ims_customers', bills: 'ims_bills', businesses: 'ims_businesses', invoiceSyncQueue: 'ims_invoice_sync_queue', lastSyncAt:'ims_last_sync_at' };
+  const SYNC_CONFIG = { apiUrl:'https://script.google.com/macros/s/AKfycby5X2_QvJqk4kuYcpzIDa6YgvTUqOMrdI5y6sXfbT2yl3xuxATn2FsWnJ5Fc0yowIN5/exec', apiKey:'Mokardder@786', clientId:'web-pos-1' };
+  let state = {
+    inventory: [], customers: [], bills: [], businesses: [], invoiceSyncQueue: [], currentCart: [], editingItemId: null, editingCustomerId: null, editingInvoiceId: null, selectedProductId: null, selectedCustomerId: '', currentInvoice: null
+  };
+
+  const byId = (id) => document.getElementById(id);
+  const inr = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(+n || 0).replace('₹', '₹ ');
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const SAMPLE_ITEM_ID = 'sample-local-item';
+  const DEFAULT_BUSINESS_ID = 'default-business-aemm-gas-service';
+  const showToast = (msg) => {
+    const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+    byId('toastWrap').appendChild(t); setTimeout(() => t.remove(), 2400);
+  };
+
+  const syncActivity = { active: 0, kind: 'upload' };
+
+  function updateSyncIndicator() {
+    const wrap = byId('syncIndicator');
+    const icon = byId('syncIndicatorIcon');
+    const text = byId('syncIndicatorText');
+    if (!wrap || !icon || !text) return;
+
+    if (syncActivity.active > 0) {
+      wrap.classList.add('active');
+      if (syncActivity.kind === 'download') {
+        icon.className = 'fa-solid fa-cloud-arrow-down';
+        text.textContent = 'Pulling...';
+      } else {
+        icon.className = 'fa-solid fa-cloud-arrow-up';
+        text.textContent = 'Pushing...';
       }
-      if (linkEl) {
-        if (href) {
-          linkEl.href = href;
-          linkEl.style.display = "inline-block";
-        } else {
-          linkEl.style.display = "none";
-        }
-      }
-
-      // show fullscreen notice
-      container.style.display = "flex";
-      // prevent background scroll while notice is open
-      document.documentElement.style.overflow = "hidden";
-      document.body.style.overflow = "hidden";
+      return;
     }
 
-    // Set the requested notice content (Bengali content provided)
-    setNotice({
-      title: "🔸 ঘরোয়া এলপিজি গ্রাহকদের জন্য বায়োমেট্রিক আধার যাচাইকরণ অভিযান",
-      date: "Nov 08, 2025",
-      excerpt: `
-        <p>দেশের সকল এলপিজি গ্রাহক, অন্তর্ভুক্ত প্রধানমন্ত্রী উজ্ব্বলা যোজনার (PMUY) গ্রাহকরাও, এখন বায়োমেট্রিক আধার যাচাইকরণ (eKYC) সম্পন্ন করতে হবে — বিনামূল্যে নিম্নলিখিত উপায়ে:</p>
-        <ol>
-          <li><strong>স্বয়ং বায়োমেট্রিক আধার যাচাইকরণ</strong><br/>আপনার তেল বিপণন সংস্থার (ইন্ডিয়ান অয়েল / ভারত পেট্রোলিয়াম / হিন্দুস্তান পেট্রোলিয়াম) মোবাইল অ্যাপের মাধ্যমে নিজে নিজেই যাচাইকরণ করতে পারবেন।<br/>📱 অ্যাপটি ডাউনলোড করতে QR কোডটি স্ক্যান করুন অথবা এই লিংকে যান: <a href="https://www.pmuy.gov.in/e-kyc.html" target="_blank" rel="noopener">https://www.pmuy.gov.in/e-kyc.html</a></li>
-          <li><strong>এলপিজি ডেলিভারি কর্মীর মাধ্যমে</strong><br/>আপনার এলপিজি ডেলিভারি কর্মী বা পরিবেশকের সাহায্যে বায়োমেট্রিক আধার যাচাইকরণ সম্পন্ন করা যাবে।</li>
-        </ol>
-        <p>PMUY গ্রাহকদের — এমনকি যারা আগেও বায়োমেট্রিক যাচাইকরণ করেছেন — তাদেরও প্রতি আর্থিক বছরে একবার এই প্রক্রিয়া সম্পন্ন করতে হবে যদি তারা টার্গেটেড ডিবিটি ভর্তুকি (₹300 প্রতি 14.2 কেজি সিলিন্ডার বা অনুপাতে 5 কেজির জন্য) পেতে চান। এই ভর্তুকি ৮ম ও ৯ম সিলিন্ডার রিফিলের জন্য প্রযোজ্য (বা ৫ কেজির ক্ষেত্রে ২১তম রিফিল থেকে)।</p>
-        <hr/>
-        <h4>🔹 গুরুত্বপূর্ণ তথ্য</h4>
-        <ul>
-          <li>ভর্তুকি কেবলমাত্র এক আর্থিক বছরে ৯টি রিফিল পর্যন্ত প্রযোজ্য।</li>
-          <li>৮ম ও ৯ম রিফিলের ভর্তুকি অস্থায়ীভাবে আটকে থাকবে; শুধুমাত্র বায়োমেট্রিক যাচাইকরণ ৩১ মার্চের মধ্যে সম্পন্ন হলে তা পুনরায় চালু হবে।</li>
-          <li>যদি ৩১ মার্চের মধ্যে যাচাইকরণ না হয়, সেই ভর্তুকি স্থায়ীভাবে বাতিল হয়ে যেতে পারে।</li>
-          <li>বায়োমেট্রিক যাচাইকরণ না করলেও এলপিজি সরবরাহ চলতে থাকবে; কেবল ভর্তুকি আটকে যেতে পারে।</li>
-          <li>যেসব PMUY গ্রাহক এক আর্থিক বছরে ইতিমধ্যেই যাচাইকরণ করেছেন, তাদের পুনরায় করতে হবে না।</li>
-        </ul>
-        <p>📞 সহায়তার জন্য যোগাযোগ করুন: <strong>Oil Industry Helpline (Toll-Free): 1800 2333 555</strong></p>
-        <p style="margin-top:.5rem;font-size:.9rem;opacity:.9">প্রকাশ করেছে: পাবলিক সেক্টর অয়েল মার্কেটিং কোম্পানিগুলি, পেট্রোলিয়াম ও প্রাকৃতিক গ্যাস মন্ত্রক, ভারত সরকার</p>
-      `,
-      href: "https://www.pmuy.gov.in/e-kyc.html",
+    wrap.classList.remove('active');
+  }
+
+  function beginSyncActivity(kind = 'upload') {
+    syncActivity.active += 1;
+    syncActivity.kind = kind;
+    updateSyncIndicator();
+  }
+
+  function endSyncActivity() {
+    syncActivity.active = Math.max(0, syncActivity.active - 1);
+    updateSyncIndicator();
+  }
+
+  const db = {
+    load(key, fallback = []) {
+      const v = localStorage.getItem(key);
+      return v ? JSON.parse(v) : fallback;
+    },
+    save(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+  };
+
+  let syncTimer = null;
+  let syncInFlight = false;
+  let pendingSync = false;
+  let autoSyncIntervalId = null;
+  let autoSyncCycleInFlight = false;
+
+  function getLastSyncAt() {
+    return localStorage.getItem(DB_KEYS.lastSyncAt) || '1970-01-01T00:00:00.000Z';
+  }
+
+  function setLastSyncAt(iso) {
+    localStorage.setItem(DB_KEYS.lastSyncAt, iso || new Date().toISOString());
+  }
+
+  function canSyncRemote() {
+    return !!SYNC_CONFIG.apiUrl;
+  }
+
+  function toSyncRows(list, idField = 'id') {
+    return (list || []).map(rec => ({
+      id: rec[idField] || rec.id || uid(),
+      updatedAt: rec.updatedAt || new Date().toISOString(),
+      deleted: !!rec.deleted,
+      version: +rec.version || 1,
+      payload: rec
+    }));
+  }
+
+  function mergeById(localRows, serverRows, idField = 'id') {
+    const map = new Map((localRows || []).map(r => [r[idField], r]));
+
+    const getRecency = (rec = {}) => ({
+      version: Number(rec.version || 0),
+      updatedAt: new Date(rec.updatedAt || 0).getTime() || 0
     });
 
-    // dismiss button — hides full screen notice and restore scroll
-    document.getElementById("dismissNotice").addEventListener("click", function () {
-      const c = document.getElementById("noticeContainer");
-      if (c) c.style.display = "none";
-      document.documentElement.style.overflow = "";
-      document.body.style.overflow = "";
-    });
+    const isIncomingNewer = (incoming, existing) => {
+      const a = getRecency(incoming);
+      const b = getRecency(existing);
+      if (a.updatedAt !== b.updatedAt) return a.updatedAt > b.updatedAt;
+      return a.version >= b.version;
+    };
 
-    // hide on Escape key
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        const c = document.getElementById("noticeContainer");
-        if (c) c.style.display = "none";
-        document.documentElement.style.overflow = "";
-        document.body.style.overflow = "";
+    (serverRows || []).forEach(row => {
+      const payload = row.payload || row;
+      const id = row.id || payload[idField] || payload.id;
+      if (!id) return;
+
+      const current = map.get(id);
+      const incoming = {
+        ...payload,
+        [idField]: id,
+        updatedAt: row.updatedAt || payload.updatedAt || new Date().toISOString(),
+        version: Number(row.version || payload.version || 1)
+      };
+
+      if (current && !isIncomingNewer(incoming, current)) return;
+      if (row.deleted || payload.deleted) {
+        map.delete(id);
+        return;
       }
+      map.set(id, incoming);
     });
-  </script>
+
+    return Array.from(map.values());
+  }
+
+  function apiGetViaJsonp(url) {
+    return new Promise((resolve, reject) => {
+      const callbackName = `__imsJsonp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const script = document.createElement('script');
+      const cleanup = () => {
+        try { delete window[callbackName]; } catch (_) { window[callbackName] = undefined; }
+        script.remove();
+      };
+      const timer = setTimeout(() => { cleanup(); reject(new Error('JSONP timeout')); }, 12000);
+      window[callbackName] = (data) => { clearTimeout(timer); cleanup(); resolve(data); };
+      script.onerror = () => { clearTimeout(timer); cleanup(); reject(new Error('JSONP request failed')); };
+      script.src = `${url}${url.includes('?') ? '&' : '?'}callback=${callbackName}&jsonp=${callbackName}`;
+      document.body.appendChild(script);
+    });
+  }
+
+  async function apiGetViaFetch(url) {
+    const res = await fetch(url, { method:'GET' });
+    return res.json();
+  }
+
+  const apiGet = async (action, payload = {}) => {
+    const query = new URLSearchParams({ action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload }).toString();
+    const url = `${SYNC_CONFIG.apiUrl}?${query}`;
+    beginSyncActivity('download');
+    try {
+      console.log('[SYNC][GET][REQ]', { action, payload, url });
+      if (location.protocol === 'file:') {
+        try {
+          const data = await apiGetViaFetch(url);
+          console.log('[SYNC][GET][RES][FETCH]', data);
+          return data;
+        } catch (fetchErr) {
+          console.warn('[SYNC][GET][FETCH][FAIL]', fetchErr);
+          try {
+            const data = await apiGetViaJsonp(url);
+            console.log('[SYNC][GET][RES][JSONP]', data);
+            return data;
+          } catch (jsonpErr) {
+            const skipped = {
+              ok:false,
+              skipped:true,
+              reason:'pull_unavailable_on_file_origin',
+              message:`fetch:${String(fetchErr)} | jsonp:${String(jsonpErr)}`
+            };
+            console.log('[SYNC][GET][RES]', skipped);
+            return skipped;
+          }
+        }
+      }
+      const data = await apiGetViaFetch(url);
+      console.log('[SYNC][GET][RES]', data);
+      return data;
+    } finally {
+      endSyncActivity();
+    }
+  };
+
+  const apiPost = async (action, payload = {}) => {
+    const reqBody = { action, apiKey: SYNC_CONFIG.apiKey, clientId: SYNC_CONFIG.clientId, ...payload };
+    const body = JSON.stringify(reqBody);
+    beginSyncActivity('upload');
+    try {
+      console.log('[SYNC][POST][REQ]', { action, payload: reqBody, url: SYNC_CONFIG.apiUrl });
+      if (location.protocol === 'file:') {
+        try {
+          const res = await fetch(SYNC_CONFIG.apiUrl, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+          });
+          const data = await res.json();
+          console.log('[SYNC][POST][RES][FETCH]', data);
+          return data;
+        } catch (fetchErr) {
+          console.warn('[SYNC][POST][FETCH][FAIL]', fetchErr);
+          await fetch(SYNC_CONFIG.apiUrl, { method:'POST', mode:'no-cors', headers:{ 'Content-Type':'text/plain;charset=UTF-8' }, body });
+          const opaqueRes = { ok:true, opaque:true, serverTime:new Date().toISOString() };
+          console.log('[SYNC][POST][RES][OPAQUE]', opaqueRes);
+          return opaqueRes;
+        }
+      }
+      return fetch(SYNC_CONFIG.apiUrl, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+      }).then(r => r.json()).then(data => {
+        console.log('[SYNC][POST][RES]', data);
+        return data;
+      });
+    } finally {
+      endSyncActivity();
+    }
+  };
+
+  async function pushAllToServer() {
+    if (syncInFlight) {
+      pendingSync = true;
+      return;
+    }
+    syncInFlight = true;
+    pendingSync = false;
+    updateSyncStatusChip('syncing');
+    try {
+      const changes = {
+        inventory: toSyncRows(state.inventory.filter(i => !isSampleInventoryItem(i)), 'id'),
+        customers: toSyncRows(state.customers, 'id'),
+        bills: toSyncRows(state.bills, 'id'),
+        businesses: toSyncRows(state.businesses.filter(b => !isDefaultBusinessProfile(b)), 'id'),
+        invoice_sync_queue: toSyncRows(state.invoiceSyncQueue, 'syncId')
+      };
+      const res = await apiPost('push', { changes });
+      if (res && res.ok && !res.opaque) { setLastSyncAt(res.serverTime || new Date().toISOString()); updateSyncStatusChip('synced'); }
+      else if (res && res.opaque) { updateSyncStatusChip('limited'); }
+    } catch (err) {
+      console.warn('Sync push failed', err);
+      updateSyncStatusChip('failed');
+    } finally {
+      syncInFlight = false;
+      if (pendingSync) {
+        clearTimeout(syncTimer);
+        syncTimer = setTimeout(pushAllToServer, 250);
+        updateSyncStatusChip('scheduled');
+      }
+    }
+  }
+
+  async function pullFromServer() {
+    try {
+      const res = await apiGet('pull', { since: getLastSyncAt() });
+      if (!res || !res.ok || !res.data) {
+        if (res && res.skipped) {
+          updateSyncStatusChip('limited');
+          return res;
+        }
+        return { ok:false, reason:'invalid_pull_response', response:res };
+      }
+      const d = res.data;
+      if (Array.isArray(d.inventory) && d.inventory.length) {
+        const serverInventory = mergeById([], d.inventory, 'id').map(computeInventoryPricing);
+        const hasServerInventory = serverInventory.some(i => !i.deleted);
+        const localOnlySample = state.inventory.length === 1 && state.inventory[0].id === SAMPLE_ITEM_ID;
+        if (hasServerInventory && localOnlySample) {
+          state.inventory = serverInventory;
+        } else {
+          state.inventory = mergeById(state.inventory, d.inventory, 'id').map(computeInventoryPricing);
+        }
+      }
+      if (Array.isArray(d.customers) && d.customers.length) state.customers = mergeById(state.customers, d.customers, 'id');
+      if (Array.isArray(d.bills) && d.bills.length) state.bills = mergeById(state.bills, d.bills, 'id');
+      if (Array.isArray(d.businesses) && d.businesses.length) state.businesses = mergeById(state.businesses, d.businesses, 'id');
+      if (Array.isArray(d.invoice_sync_queue) && d.invoice_sync_queue.length) state.invoiceSyncQueue = mergeById(state.invoiceSyncQueue, d.invoice_sync_queue, 'syncId');
+
+      db.save(DB_KEYS.inventory, state.inventory);
+      db.save(DB_KEYS.customers, state.customers);
+      db.save(DB_KEYS.bills, state.bills);
+      db.save(DB_KEYS.businesses, state.businesses);
+      db.save(DB_KEYS.invoiceSyncQueue, state.invoiceSyncQueue);
+
+      setLastSyncAt(res.serverTime || new Date().toISOString());
+      updateSyncStatusChip('synced');
+      renderAll();
+      return { ok:true, pulled:true };
+    } catch (err) {
+      console.warn('Sync pull failed', err);
+      updateSyncStatusChip('failed');
+      return { ok:false, reason:'pull_exception', error:String(err) };
+    }
+  }
+
+  function scheduleServerSync() {
+    pendingSync = true;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(pushAllToServer, 1200);
+    updateSyncStatusChip('scheduled');
+  }
+
+  function updateSyncStatusChip(status) {
+    const el = byId('syncStatusChip');
+    if (!el) return;
+    const map = {
+      idle: 'Sync: idle',
+      scheduled: 'Sync: scheduled',
+      syncing: 'Sync: syncing...',
+      synced: `Sync: synced ${new Date().toLocaleTimeString('en-IN')}`,
+      failed: 'Sync: failed (will retry)',
+      disabled: 'Sync: disabled',
+      limited: 'Sync: idle'
+    };
+    el.textContent = map[status] || map.idle;
+  }
+
+  async function syncNow() {
+    updateSyncStatusChip('syncing');
+    try {
+      await pushAllToServer();
+      await pullFromServer();
+      updateSyncStatusChip('synced');
+      showToast('Manual sync completed');
+    } catch (err) {
+      updateSyncStatusChip('failed');
+      showToast('Manual sync failed');
+    }
+  }
+
+  async function pullNow() {
+    updateSyncStatusChip('syncing');
+    try {
+      const res = await pullFromServer();
+      if (res && res.ok) {
+        updateSyncStatusChip('synced');
+        showToast('Pull completed');
+        return;
+      }
+      if (res && res.skipped) {
+        showToast('Pull unavailable in file mode (enable CORS or JSONP callback)');
+        return;
+      }
+      updateSyncStatusChip('failed');
+      showToast('Pull failed');
+    } catch (err) {
+      updateSyncStatusChip('failed');
+      showToast('Pull failed');
+    }
+  }
+
+  async function runAutoSyncCycle(reason = 'interval') {
+    if (!canSyncRemote() || autoSyncCycleInFlight) return;
+    autoSyncCycleInFlight = true;
+    try {
+      console.log('[SYNC][AUTO][START]', { reason });
+      await pushAllToServer();
+      await pullFromServer();
+    } catch (err) {
+      console.warn('[SYNC][AUTO][FAIL]', { reason, err });
+      updateSyncStatusChip('failed');
+    } finally {
+      autoSyncCycleInFlight = false;
+    }
+  }
+
+  function setupAutoSync() {
+    if (!canSyncRemote()) return;
+    if (autoSyncIntervalId) clearInterval(autoSyncIntervalId);
+
+    runAutoSyncCycle('startup');
+    autoSyncIntervalId = setInterval(() => runAutoSyncCycle('interval'), 30000);
+
+    window.addEventListener('online', () => runAutoSyncCycle('online'));
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') runAutoSyncCycle('visible');
+    });
+    window.addEventListener('focus', () => runAutoSyncCycle('focus'));
+  }
+
+  function seedData() {
+    if (!db.load(DB_KEYS.inventory).length) {
+      // @Mokardder - Update inventory data to DB here
+      db.save(DB_KEYS.inventory, [
+        {
+          id: SAMPLE_ITEM_ID,
+          name:'Sample Item',
+          description:'Local sample inventory item (auto-replaced after server pull)',
+          category:'Sample',
+          actualBuyingPrice:100,
+          buyingDiscountType:'fixed',
+          buyingDiscountValue:0,
+          buyingPrice:100,
+          sellingDiscountType:'fixed',
+          sellingDiscountValue:0,
+          sellingPrice:120,
+          stock:10,
+          isSampleSeed:true,
+          updatedAt:new Date().toISOString(),
+          version:1
+        }
+      ]);
+    }
+  }
+  function seedBusinessProfiles() {
+    if (!db.load(DB_KEYS.businesses).length) {
+      db.save(DB_KEYS.businesses, [
+        {
+          id: DEFAULT_BUSINESS_ID,
+          name:'Aemm Gas Service',
+          address:'VILL PADMALAVPUR, PO PADMALAVPUR PS AMDANGA, 743126',
+          contact:'9123386785',
+          isDefaultSeed:true,
+          updatedAt:new Date().toISOString(),
+          version:1
+        }
+      ]);
+    }
+  }
+
+
+  function loadState() {
+    seedData();
+    seedBusinessProfiles();
+    // @Mokardder - Fetch inventory data from DB here
+    state.inventory = db.load(DB_KEYS.inventory, []).map(computeInventoryPricing);
+    // @Mokardder - Customer DB operations here
+    state.customers = db.load(DB_KEYS.customers, []);
+    // @Mokardder - Invoice fetch/store logic here
+    state.bills = db.load(DB_KEYS.bills, []);
+    state.businesses = db.load(DB_KEYS.businesses, []);
+    state.invoiceSyncQueue = db.load(DB_KEYS.invoiceSyncQueue, []);
+  }
+
+  function stampRecordsForSync(list) {
+    const now = new Date().toISOString();
+    return (list || []).map(rec => ({ ...rec, updatedAt: now, version: (+rec.version || 0) + 1 }));
+  }
+
+  function activeInventory() {
+    return state.inventory.filter(i => !i.deleted);
+  }
+
+  function isSampleInventoryItem(item) {
+    return !!item && (item.id === SAMPLE_ITEM_ID || item.isSampleSeed === true);
+  }
+
+  function persistInventory() {
+    // @Mokardder - Update inventory data to DB here
+    state.inventory = stampRecordsForSync(state.inventory);
+    db.save(DB_KEYS.inventory, state.inventory);
+    scheduleServerSync();
+  }
+  function persistCustomers() {
+    // @Mokardder - Customer DB operations here
+    db.save(DB_KEYS.customers, state.customers);
+    scheduleServerSync();
+  }
+  function persistBills() {
+    // @Mokardder - Invoice fetch/store logic here
+    db.save(DB_KEYS.bills, state.bills);
+    scheduleServerSync();
+  }
+  function persistBusinesses() {
+    db.save(DB_KEYS.businesses, state.businesses);
+    scheduleServerSync();
+  }
+  function persistInvoiceSyncQueue() {
+    db.save(DB_KEYS.invoiceSyncQueue, state.invoiceSyncQueue);
+    scheduleServerSync();
+  }
+
+  function isDefaultBusinessProfile(b) {
+    return !!b && (b.id === DEFAULT_BUSINESS_ID || b.isDefaultSeed === true);
+  }
+
+  function renderBusinessOptions() {
+    const select = byId('businessProfileSelect');
+    select.innerHTML = '<option value="">Select Business</option>'
+      + state.businesses.map(b => `<option value="${b.id}">${b.name}</option>`).join('')
+      + '<option value="__new__">+ Create New Business</option>';
+    const match = state.businesses.find(b => b.name === byId('companyName').value && b.address === byId('shopAddress').value);
+    if (match) select.value = match.id;
+  }
+
+  function applyBusinessProfile(id) {
+    if (id === '__new__') {
+      byId('businessProfileSelect').value = '__new__';
+      byId('companyName').value = '';
+      byId('shopAddress').value = '';
+      byId('shopContact').value = '';
+      byId('companyName').focus();
+      renderInvoice();
+      return;
+    }
+    const b = state.businesses.find(x => x.id === id);
+    if (!b) return;
+    byId('companyName').value = b.name;
+    byId('shopAddress').value = b.address;
+    byId('shopContact').value = b.contact || '';
+    renderInvoice();
+  }
+
+  function saveBusinessProfileFromInputs() {
+    const name = byId('companyName').value.trim();
+    const address = byId('shopAddress').value.trim();
+    const contact = byId('shopContact').value.trim();
+    if (!name || !address) return showToast('Business name and address are required');
+    const existing = state.businesses.find(b => b.name === name && b.address === address);
+    if (existing) {
+      existing.contact = contact;
+      showToast('Business updated');
+    } else {
+      state.businesses.unshift({ id: uid(), name, address, contact });
+      showToast('Business saved');
+    }
+    persistBusinesses();
+    renderBusinessOptions();
+    const selected = state.businesses.find(b => b.name === name && b.address === address);
+    if (selected) byId('businessProfileSelect').value = selected.id;
+  }
+
+  function queueInvoiceForServerSync(inv, action = 'print_or_download') {
+    if (!inv) return;
+    const business = {
+      profileId: byId('businessProfileSelect').value || '',
+      name: byId('companyName').value.trim(),
+      address: byId('shopAddress').value.trim(),
+      contact: byId('shopContact').value.trim()
+    };
+    const lineItems = inv.items.map((it, idx) => ({
+      lineNo: idx + 1,
+      productId: it.id,
+      productName: it.name,
+      quantity: +it.quantity || 0,
+      unitPrice: +it.price || 0,
+      lineDiscount: +it.discount || 0,
+      inventoryDiscountPerUnit: +it.inventoryDiscount || 0,
+      lineGross: (+it.quantity || 0) * (+it.price || 0),
+      lineNet: ((+it.quantity || 0) * (+it.price || 0)) - (+it.discount || 0)
+    }));
+
+    const syncRecord = {
+      syncId: `SYNC-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      syncStatus: 'pending',
+      syncRetryCount: 0,
+      queuedAt: new Date().toISOString(),
+      trigger: action,
+      invoiceId: inv.id,
+      invoiceDate: inv.date,
+      paymentMode: inv.paymentMode,
+      customer: { ...inv.customer },
+      business,
+      pricing: {
+        subtotal: +inv.subtotal || 0,
+        itemLevelDiscount: +inv.itemLevelDiscount || 0,
+        billDiscountType: inv.billDiscountType || 'fixed',
+        billDiscountValue: +inv.billDiscountValue || 0,
+        billDiscount: +inv.billDiscount || 0,
+        totalDiscount: +inv.discount || 0,
+        gstPercent: +inv.gstPercent || 0,
+        gstAmount: +inv.gst || 0,
+        grandTotal: +inv.grandTotal || 0
+      },
+      items: lineItems,
+      invoiceHtmlSnapshot: byId('printableInvoice').innerHTML
+    };
+
+    state.invoiceSyncQueue.unshift(syncRecord);
+    persistInvoiceSyncQueue();
+  }
+
+
+  function openInvoicePrintPopup() {
+    const invoiceMarkup = byId('printableInvoice').innerHTML;
+    if (!invoiceMarkup || !invoiceMarkup.trim()) {
+      showToast('No invoice available to print');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=980,height=1100');
+    if (!printWindow) {
+      showToast('Popup blocked. Please allow popups to print invoice.');
+      return;
+    }
+
+    const popupHtml = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Invoice Print</title>
+  <style>
+    :root { --border:#e2e8f0; --muted:#64748b; }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; background:#fff; }
+    body { font-family: Inter, Arial, sans-serif; color:#0f172a; }
+    .muted { color: var(--muted); }
+    .bill-to-box { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
+    .bill-to-box p { margin: 4px 0; font-size: .88rem; }
+    .invoice-header-print, .invoice-body-print, .invoice-footer-print { border:none; border-radius:0; padding:6px 0; background:#fff; }
+    .invoice-body-print table { margin-top: 10px; width:100%; border-collapse: collapse; }
+    .invoice-body-print th, .invoice-body-print td { border-bottom:1px solid var(--border); text-align:left; padding:10px; }
+    .invoice-inner { width: 100%; height: 297mm; padding: 6mm 8mm; display:grid; grid-template-rows:auto 1fr auto; }
+    .invoice-grid-head { display:grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:start; }
+    .invoice-col-right { text-align:right; }
+    .logo-ph { width:60px; height:60px; border:2px dashed #cbd5e1; border-radius: 10px; display:grid; place-items:center; color:#64748b; }
+
+    @media print {
+      @page { size: 210mm 297mm; margin: 0; }
+      html, body { width: 210mm; min-height: 297mm; height: auto; margin: 0; padding: 0; }
+      #printableInvoice { width: 210mm; height: 297mm; max-height: 297mm; overflow: hidden; margin:0; padding:0; }
+      .invoice-header-print { align-self: start; }
+      .invoice-body-print { align-self: start; overflow: hidden; }
+      .invoice-footer-print { align-self: end; break-before: avoid-page; page-break-before: avoid; break-inside: avoid-page; page-break-inside: avoid; }
+      .invoice-footer-print, .invoice-footer-print * { break-inside: avoid-page; page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div id="printableInvoice">${invoiceMarkup}</div>
+</body>
+</html>`;
+
+    printWindow.document.open();
+    printWindow.document.write(popupHtml);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 120);
+    };
+  }
+
+  function computeDiscount(base, type, value) {
+    const v = Math.max(0, +value || 0);
+    if (type === 'percent') return Math.min(base, base * Math.min(v, 100) / 100);
+    return Math.min(base, v);
+  }
+
+  function computeInventoryPricing(rec) {
+    const pricingMode = rec.pricingMode || 'mrp_discount';
+
+    if (pricingMode === 'fixed_price') {
+      const fixedBuyingPrice = Math.max(0, +rec.fixedBuyingPrice || +rec.buyingPrice || 0);
+      const fixedSellingPrice = Math.max(0, +rec.fixedSellingPrice || +rec.sellingPrice || 0);
+      return {
+        ...rec,
+        pricingMode,
+        actualBuyingPrice: fixedBuyingPrice,
+        buyingDiscountType: 'fixed',
+        buyingDiscountValue: 0,
+        buyingPrice: fixedBuyingPrice,
+        sellingDiscountType: 'fixed',
+        sellingDiscountValue: 0,
+        sellingDiscountAmount: 0,
+        fixedBuyingPrice,
+        fixedSellingPrice,
+        sellingPrice: fixedSellingPrice,
+        stock: Math.max(0, +rec.stock || 0)
+      };
+    }
+
+    if (pricingMode === 'profit_margin') {
+      const costPrice = Math.max(0, +rec.costPrice || +rec.buyingPrice || 0);
+      const profitType = rec.profitType || 'percent';
+      const profitValue = Math.max(0, +rec.profitValue || 0);
+      const profitAmount = profitType === 'percent' ? (costPrice * Math.min(profitValue, 1000) / 100) : profitValue;
+      const sellingPrice = Math.max(0, costPrice + profitAmount);
+      return {
+        ...rec,
+        pricingMode,
+        costPrice,
+        profitType,
+        profitValue,
+        actualBuyingPrice: costPrice,
+        buyingDiscountType: 'fixed',
+        buyingDiscountValue: 0,
+        buyingPrice: costPrice,
+        sellingDiscountType: 'fixed',
+        sellingDiscountValue: 0,
+        sellingDiscountAmount: 0,
+        sellingPrice,
+        stock: Math.max(0, +rec.stock || 0)
+      };
+    }
+
+    const actualBuyingPrice = Math.max(0, +rec.actualBuyingPrice || +rec.buyingPrice || 0);
+    const buyingDiscountType = rec.buyingDiscountType || 'fixed';
+    const buyingDiscountValue = Math.max(0, +rec.buyingDiscountValue || 0);
+    const buyDiscount = computeDiscount(actualBuyingPrice, buyingDiscountType, buyingDiscountValue);
+    const buyingPrice = Math.max(0, actualBuyingPrice - buyDiscount);
+
+    const sellingDiscountType = rec.sellingDiscountType || rec.sellingProfitType || 'fixed';
+    const sellingDiscountValue = Math.max(0, +rec.sellingDiscountValue || +rec.sellingProfitValue || 0);
+    const sellingDiscountAmount = computeDiscount(actualBuyingPrice, sellingDiscountType, sellingDiscountValue);
+    const sellingPrice = Math.max(0, actualBuyingPrice - sellingDiscountAmount);
+
+    return {
+      ...rec,
+      pricingMode,
+      actualBuyingPrice,
+      buyingDiscountType,
+      buyingDiscountValue,
+      buyingPrice,
+      sellingDiscountType,
+      sellingDiscountValue,
+      sellingDiscountAmount,
+      sellingPrice,
+      stock: Math.max(0, +rec.stock || 0)
+    };
+  }
+
+  function dailyMonthlyAnnualStats() {
+    const now = new Date();
+    const today = now.toISOString().slice(0,10);
+    const month = now.getMonth(), year = now.getFullYear();
+    const sums = { daily:0, monthly:0, annual:0, revenue:0, dailyQty:0, monthlyQty:0, annualQty:0 };
+    state.bills.forEach(b => {
+      const d = new Date(b.date);
+      sums.revenue += b.grandTotal;
+      const qty = b.items.reduce((s, it) => s + it.quantity, 0);
+      if (b.date.slice(0,10) === today) { sums.daily += b.grandTotal; sums.dailyQty += qty; }
+      if (d.getMonth() === month && d.getFullYear() === year) { sums.monthly += b.grandTotal; sums.monthlyQty += qty; }
+      if (d.getFullYear() === year) { sums.annual += b.grandTotal; sums.annualQty += qty; }
+    });
+    return sums;
+  }
+
+  function renderDashboard() {
+    const inventoryValue = activeInventory().reduce((sum, i) => sum + (i.buyingPrice * i.stock), 0);
+    const stats = dailyMonthlyAnnualStats();
+    const totalItemsSold = state.bills.reduce((sum, b) => sum + b.items.reduce((s, it) => s + it.quantity, 0), 0);
+    const totalSoldAmount = state.bills.reduce((sum, b) => sum + b.subtotal, 0);
+    const cards = [
+      ['Total Products in Inventory', activeInventory().length],
+      ['Total Inventory Value (Buying)', inr(inventoryValue)],
+      ['Total Items Sold', totalItemsSold],
+      ['Sold Amount', inr(totalSoldAmount)],
+      ['Total Revenue', inr(stats.revenue)],
+      ['Daily Sales', inr(stats.daily)],
+      ['Monthly Sales', inr(stats.monthly)],
+      ['Annual Sales', inr(stats.annual)]
+    ];
+    byId('summaryCards').innerHTML = cards.map(c => `<article class="card"><p class="label">${c[0]}</p><p class="value">${c[1]}</p></article>`).join('');
+    byId('reportCards').innerHTML = [
+      ['Daily Sell & Revenue Report', `${stats.dailyQty} items • ${inr(stats.daily)}`],
+      ['Monthly Sell & Revenue Report', `${stats.monthlyQty} items • ${inr(stats.monthly)}`],
+      ['Annual Sell & Revenue Report', `${stats.annualQty} items • ${inr(stats.annual)}`]
+    ].map(c => `<article class="card"><p class="label">${c[0]}</p><p class="value">${c[1]}</p></article>`).join('');
+  }
+
+  function renderInventory() {
+    const q = byId('inventorySearch').value.toLowerCase();
+    const categories = ['All', ...new Set(activeInventory().map(i => i.category).filter(Boolean))];
+    const categorySelect = byId('inventoryCategoryFilter');
+    const selectedCategory = categorySelect.value || 'All';
+    categorySelect.innerHTML = categories.map(c => `<option>${c}</option>`).join('');
+    categorySelect.value = categories.includes(selectedCategory) ? selectedCategory : 'All';
+
+    const category = categorySelect.value || 'All';
+    const rows = activeInventory().filter(i => (category === 'All' || i.category === category) && `${i.name} ${i.description} ${i.category}`.toLowerCase().includes(q));
+    byId('inventoryTableBody').innerHTML = rows.map(i => `
+      <tr>
+        <td>${i.name}</td><td>${i.description}</td><td><span class="pill">${i.category}</span></td>
+        <td><span class='sensitive-price-blur' tabindex='0' title='Hover to reveal MRP'>${inr(i.actualBuyingPrice)}</span></td><td><span class='sensitive-price-blur' tabindex='0' title='Hover to reveal buy discount'>${i.buyingDiscountType === 'percent' ? i.buyingDiscountValue + '%' : inr(i.buyingDiscountValue)}</span></td><td><span class='buying-price-blur' tabindex='0' title='Hover to reveal buying price'>${inr(i.buyingPrice)}</span></td><td>${i.sellingDiscountType === 'percent' ? i.sellingDiscountValue + '%' : inr(i.sellingDiscountValue)}</td><td><span class='selling-price'>${inr(i.sellingPrice)}</span></td><td>${i.stock}</td>
+        <td><div class="actions"><button class="btn ghost" onclick="openItemModal('${i.id}')">Edit</button><button class="btn danger" onclick="deleteItem('${i.id}')">Delete</button></div></td>
+      </tr>
+    `).join('') || `<tr><td colspan="10" class="muted">No inventory records found.</td></tr>`;
+  }
+
+
+  const compactNum = (n) => { const v = Math.round((+n || 0) * 100) / 100; return Number.isFinite(v) ? String(v) : '0'; };
+
+  function updateItemFormComputedPrices() {
+    const form = byId('itemForm');
+    const mode = form.elements.pricingMode.value;
+    const rec = {
+      pricingMode: mode,
+      actualBuyingPrice: form.elements.actualBuyingPrice.value,
+      buyingDiscountType: form.elements.buyingDiscountType.value,
+      buyingDiscountValue: form.elements.buyingDiscountValue.value,
+      sellingDiscountType: form.elements.sellingDiscountType.value,
+      sellingDiscountValue: form.elements.sellingDiscountValue.value,
+      fixedBuyingPrice: form.elements.fixedBuyingPrice.value,
+      fixedSellingPrice: form.elements.fixedSellingPrice.value,
+      costPrice: form.elements.costPrice.value,
+      profitType: form.elements.profitType.value,
+      profitValue: form.elements.profitValue.value,
+      stock: form.elements.stock.value
+    };
+    const calc = computeInventoryPricing(rec);
+    form.elements.buyingPrice.value = compactNum(calc.buyingPrice);
+    form.elements.sellingPrice.value = compactNum(calc.sellingPrice);
+    if (mode === 'fixed_price') {
+      form.elements.fixedBuyingPrice.value = compactNum(calc.buyingPrice);
+      form.elements.fixedSellingPrice.value = compactNum(calc.sellingPrice);
+    }
+    if (mode === 'profit_margin') {
+      form.elements.costPrice.value = compactNum(calc.buyingPrice);
+    }
+  }
+
+
+  function setPricingMode(mode) {
+    const form = byId('itemForm');
+    form.elements.pricingMode.value = mode;
+    document.querySelectorAll('.pricing-tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.pricingMode === mode));
+    document.querySelectorAll('.pricing-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === mode));
+    updateItemFormComputedPrices();
+  }
+
+  function populateCategoryOptions(selected = '') {
+    const select = byId('itemCategorySelect');
+    const categories = [...new Set(activeInventory().map(i => i.category).filter(Boolean))].sort();
+    select.innerHTML = '<option value="">Select Category</option>' + categories.map(c => `<option value="${c}">${c}</option>`).join('') + '<option value="__new__">+ Create New Category</option>';
+    if (selected && categories.includes(selected)) select.value = selected;
+    else if (selected) {
+      select.value = '__new__';
+      byId('newCategoryInput').style.display = 'block';
+      byId('newCategoryInput').value = selected;
+    }
+  }
+
+  function toggleNewCategoryInput() {
+    const showNew = byId('itemCategorySelect').value === '__new__';
+    byId('newCategoryInput').style.display = showNew ? 'block' : 'none';
+    if (!showNew) byId('newCategoryInput').value = '';
+  }
+
+  function openItemModal(id = null) {
+    state.editingItemId = id;
+    const m = byId('itemModal'); const f = byId('itemForm');
+    byId('itemModalAlert').textContent = id ? 'Edit inventory item details (please verify values before saving).' : 'Create a new inventory item record.';
+    f.reset();
+    populateCategoryOptions();
+    toggleNewCategoryInput();
+    if (id) {
+      const p = activeInventory().find(x => x.id === id);
+      if (!p) { showToast('Item no longer available'); return; }
+      Object.entries(p).forEach(([k,v]) => f.elements[k] && (f.elements[k].value = v));
+      populateCategoryOptions(p.category);
+      toggleNewCategoryInput();
+      setPricingMode(p.pricingMode || 'mrp_discount');
+    } else {
+      setPricingMode('fixed_price');
+    }
+    updateItemFormComputedPrices();
+    m.classList.add('active');
+  }
+
+  function deleteItem(id) {
+    if (!confirm('Delete this item permanently?')) return;
+    const current = state.inventory.find(i => i.id === id);
+    if (!current) return;
+    state.inventory = state.inventory.map(i => i.id === id
+      ? { ...i, deleted: true, stock: 0 }
+      : i
+    );
+    state.currentCart = state.currentCart.filter(c => c.id !== id);
+    persistInventory(); renderAll(); showToast('Inventory item deleted');
+  }
+
+  function renderBillingProducts() {
+    const categories = ['All', ...new Set(activeInventory().map(i => i.category).filter(Boolean))];
+    const categorySelect = byId('billingCategoryFilter');
+    const selectedCategory = categorySelect.value || 'All';
+    categorySelect.innerHTML = categories.map(c => `<option>${c}</option>`).join('');
+    categorySelect.value = categories.includes(selectedCategory) ? selectedCategory : 'All';
+    refreshProductGrid();
+  }
+
+  function refreshProductGrid() {
+    const q = byId('billingSearch').value.toLowerCase();
+    const cat = byId('billingCategoryFilter').value || 'All';
+    const items = activeInventory().filter(i => (cat === 'All' || i.category === cat) && i.name.toLowerCase().includes(q));
+    byId('productGrid').innerHTML = items.map(i => `<div class="product-card" onclick="openProductModal('${i.id}')"><strong>${i.name}</strong><p class="selling-price">${inr(i.sellingPrice)}</p><small>Stock: ${i.stock}</small></div>`).join('') || '<p class="muted">No products found.</p>';
+  }
+
+  function openProductModal(id) {
+    const p = activeInventory().find(i => i.id === id);
+    if (!p || p.stock <= 0) return showToast('Out of stock');
+    state.selectedProductId = id;
+    byId('productModalBody').innerHTML = `
+      <p><strong>${p.name}</strong></p>
+      <p class="muted">${p.description}</p>
+      <p>MRP: ${inr(p.actualBuyingPrice || p.sellingPrice)} | Selling: <span class='selling-price'>${inr(p.sellingPrice)}</span></p>
+      <p>Available stock: ${p.stock}</p>
+      <input id="addQty" type="number" min="1" max="${p.stock}" value="1" />
+      <div class="row" style="margin-top:10px"><button class="btn" onclick="addToCart()">Add to Cart</button><button class="btn ghost" onclick="closeModal('productModal')">Cancel</button></div>
+    `;
+    byId('productModal').classList.add('active');
+  }
+
+  function addToCart() {
+    const qty = +byId('addQty').value;
+    const p = activeInventory().find(i => i.id === state.selectedProductId);
+    if (!p) return showToast('Product no longer available');
+    if (!qty || qty < 1 || qty > p.stock) return showToast('Invalid quantity');
+    const existing = state.currentCart.find(c => c.id === p.id);
+    if (existing) {
+      if (existing.quantity + qty > p.stock) return showToast('Stock is insufficient');
+      existing.quantity += qty;
+      updateCartDiscount(existing.id, existing.discountValue || 0);
+    } else {
+      state.currentCart.push({ id: p.id, name: p.name, price: p.sellingPrice || p.actualBuyingPrice, quantity: qty, discountType: p.sellingDiscountType || 'fixed', discountValue: Math.max(0, +p.sellingDiscountValue || 0), discount:0, mrp: p.actualBuyingPrice || p.sellingPrice });
+    }
+    updateCartDiscount(p.id, state.currentCart.find(c => c.id === p.id).discountValue || 0);
+    closeModal('productModal'); renderCart(); showToast('Added to cart');
+  }
+
+  function renderCart() {
+    const list = byId('cartList');
+    list.innerHTML = state.currentCart.map(c => {
+      const qty = Math.max(1, +c.quantity || 1);
+      const discountValue = Math.max(0, +c.discountValue || 0);
+      return `
+      <div class="cart-item">
+        <strong>${c.name}</strong>
+        <input type="number" min="1" value="${qty}" onchange="updateCartQty('${c.id}', this.value)" />
+        <span>${inr(c.price)}</span>
+        <span class='muted'>Sell Disc</span>
+        <span class="row"><select onchange="updateCartDiscountType('${c.id}', this.value)" style="width:58px"><option value="fixed" ${c.discountType==='fixed'?'selected':''}>₹</option><option value="percent" ${c.discountType==='percent'?'selected':''}>%</option></select><input type="number" min="0" value="${discountValue}" onchange="updateCartDiscount('${c.id}', this.value)" title="Sell discount per item" style="width:70px" /></span>
+        <button class="btn danger" onclick="removeCartItem('${c.id}')">X</button>
+      </div>
+    `;
+    }).join('') || '<p class="muted">Cart is empty.</p>';
+    calculateTotals();
+  }
+
+  function updateCartQty(id, value) {
+    const item = state.currentCart.find(c => c.id === id);
+    const inv = activeInventory().find(i => i.id === id);
+    if (!inv) return showToast('Product no longer available');
+    const q = +value;
+    if (!q || q < 1 || q > inv.stock) return showToast('Stock is insufficient');
+    item.quantity = q; updateCartDiscount(id, item.discountValue || 0); renderCart();
+  }
+  function updateCartDiscountType(id, type) {
+    const item = state.currentCart.find(c => c.id === id);
+    item.discountType = type;
+    updateCartDiscount(id, item.discountValue || 0);
+  }
+
+  function updateCartDiscount(id, value) {
+    const item = state.currentCart.find(c => c.id === id);
+    item.discountValue = Math.max(0, +value || 0);
+    const maxLine = item.price * item.quantity;
+    const lineDiscount = item.discountType === 'percent'
+      ? Math.min(maxLine, maxLine * Math.min(item.discountValue, 100) / 100)
+      : Math.min(maxLine, (item.discountValue || 0) * item.quantity);
+    item.discount = Math.min(maxLine, lineDiscount);
+    calculateTotals();
+  }
+  function removeCartItem(id) {
+    state.currentCart = state.currentCart.filter(c => c.id !== id); renderCart();
+  }
+
+  function calculateTotals() {
+    const subtotal = state.currentCart.reduce((s, i) => s + i.price * i.quantity, 0);
+    const itemLevelDiscount = state.currentCart.reduce((s, i) => s + i.discount, 0);
+    const billDiscountType = byId('billDiscountType').value;
+    const billDiscountValue = Math.max(0, +byId('billDiscountValue').value || 0);
+    const afterItemDiscount = Math.max(subtotal - itemLevelDiscount, 0);
+    const billDiscount = billDiscountType === 'percent'
+      ? (afterItemDiscount * Math.min(billDiscountValue, 100) / 100)
+      : Math.min(billDiscountValue, afterItemDiscount);
+    const discount = itemLevelDiscount + billDiscount;
+    const gstPercent = +byId('gstInput').value || 0;
+    const taxable = Math.max(afterItemDiscount - billDiscount, 0);
+    const gst = taxable * gstPercent / 100;
+    const grand = taxable + gst;
+    byId('subTotal').textContent = inr(subtotal);
+    byId('totalDiscount').textContent = inr(discount);
+    byId('grandTotal').textContent = inr(grand);
+    return { subtotal, itemLevelDiscount, billDiscountType, billDiscountValue, billDiscount, discount, gstPercent, gst, grand };
+  }
+
+  function numberToWordsIndian(num) {
+    if (num === 0) return 'Zero Rupees Only';
+    const a = ['', 'One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+    const b = ['', '', 'Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    const two = n => n < 20 ? a[n] : b[Math.floor(n/10)] + (n%10 ? ' ' + a[n%10] : '');
+    const three = n => {
+      const h = Math.floor(n/100), r = n%100;
+      return (h ? a[h] + ' Hundred ' : '') + (r ? two(r) : '');
+    };
+    const parts = [];
+    const units = [['Crore', 10000000], ['Lakh', 100000], ['Thousand', 1000], ['Hundred', 100]];
+    let n = Math.floor(num);
+    for (const [name, val] of units) {
+      if (n >= val) {
+        const c = Math.floor(n / val);
+        parts.push((val===100 ? a[c] : (c<100 ? two(c) : three(c))) + ' ' + name);
+        n %= val;
+      }
+    }
+    if (n) parts.push(two(n));
+    return parts.join(' ').replace(/\s+/g,' ').trim() + ' Rupees Only';
+  }
+
+
+  function renderCustomerOptions() {
+    const select = byId('savedCustomerSelect');
+    const q = byId('customerSearch').value.trim().toLowerCase();
+    const filtered = state.customers.filter(c => `${c.name} ${c.phone} ${c.address}`.toLowerCase().includes(q));
+    select.innerHTML = '<option value="">Select Saved Customer</option>' + filtered.map(c => `<option value="${c.id}">${c.name} (${c.phone})</option>`).join('');
+    if (state.selectedCustomerId) select.value = state.selectedCustomerId;
+  }
+
+  function applySelectedCustomer(customerId) {
+    state.selectedCustomerId = customerId;
+    if (!customerId) return;
+    const customer = state.customers.find(c => c.id === customerId);
+    if (!customer) return;
+    byId('walkInName').value = customer.name;
+    byId('walkInPhone').value = customer.phone;
+    byId('walkInAddress').value = customer.address;
+    setCustomerTab('regular');
+  }
+
+
+  function setCustomerTab(tab) {
+    document.querySelectorAll('.tab-chip').forEach(btn => btn.classList.toggle('active', btn.dataset.customerTab === tab));
+    byId('regularCustomerPane').classList.toggle('active', tab === 'regular');
+    byId('savedCustomerPane').classList.toggle('active', tab === 'saved');
+  }
+
+  function syncInvoiceEditUI() {
+    const editing = !!state.editingInvoiceId;
+    byId('proceedInvoice').innerHTML = editing
+      ? '<i class="fa-solid fa-pen-to-square"></i> Update Invoice'
+      : '<i class="fa-solid fa-file-circle-check"></i> Proceed to Invoice';
+    byId('editInvoiceBtn').style.display = (state.currentInvoice || state.bills[0]) ? 'inline-flex' : 'none';
+  }
+
+  function editCurrentInvoiceItems() {
+    const inv = state.currentInvoice || state.bills[0];
+    if (!inv) return showToast('No invoice available to edit');
+    if (state.editingInvoiceId === inv.id) {
+      switchTab('billing');
+      return;
+    }
+
+    state.inventory = state.inventory.map(i => {
+      const billed = inv.items.find(it => it.id === i.id);
+      return billed ? { ...i, stock: i.stock + billed.quantity } : i;
+    });
+    persistInventory();
+
+    state.currentCart = inv.items.map(i => ({ ...i, discountType: i.discountType || 'fixed', discountValue: Math.max(0, +i.discountValue || 0) }));
+    byId('billDiscountType').value = inv.billDiscountType || 'fixed';
+    byId('billDiscountValue').value = inv.billDiscountValue || 0;
+    byId('gstInput').value = inv.gstPercent || 0;
+    byId('walkInName').value = inv.customer?.name || '';
+    byId('walkInPhone').value = inv.customer?.phone && inv.customer.phone !== '-' ? inv.customer.phone : '';
+    byId('walkInAddress').value = inv.customer?.address && inv.customer.address !== '-' ? inv.customer.address : '';
+    const paymentInput = document.querySelector(`input[name="paymentMode"][value="${inv.paymentMode || 'Cash'}"]`);
+    if (paymentInput) paymentInput.checked = true;
+
+    state.bills = state.bills.filter(b => b.id !== inv.id);
+    persistBills();
+    state.currentInvoice = null;
+    state.editingInvoiceId = inv.id;
+
+    renderAll();
+    switchTab('billing');
+    showToast('Invoice loaded for editing. Add or remove items and update invoice.');
+  }
+
+  function proceedInvoice() {
+    if (!state.currentCart.length) return showToast('Add items in cart first');
+    for (const c of state.currentCart) {
+      const inv = activeInventory().find(i => i.id === c.id);
+      if (!inv || c.quantity > inv.stock) return showToast(`Stock insufficient for ${c.name}`);
+    }
+    const { subtotal, itemLevelDiscount, billDiscountType, billDiscountValue, billDiscount, discount, gstPercent, gst, grand } = calculateTotals();
+    const customer = {
+      name: byId('walkInName').value.trim() || 'Walk-in Customer',
+      phone: byId('walkInPhone').value.trim() || '-',
+      address: byId('walkInAddress').value.trim() || '-'
+    };
+    if (customer.phone !== '-' && !/^\d{10}$/.test(customer.phone)) return showToast('Phone must be 10 digits');
+    const paymentMode = document.querySelector('input[name="paymentMode"]:checked').value;
+    state.inventory = state.inventory.map(i => {
+      const cart = state.currentCart.find(c => c.id === i.id);
+      return cart ? { ...i, stock: i.stock - cart.quantity } : i;
+    });
+    persistInventory();
+
+    const isEditingInvoice = !!state.editingInvoiceId;
+    const invoice = {
+      id: state.editingInvoiceId || ('INV-' + Date.now()),
+      date: new Date().toISOString(),
+      customer,
+      items: state.currentCart.map(i => ({ ...i })),
+      subtotal, itemLevelDiscount, billDiscountType, billDiscountValue, billDiscount, discount, gstPercent, gst, grandTotal: grand, paymentMode
+    };
+    // @Mokardder - Save billing transaction to DB here
+    state.bills.unshift(invoice);
+    persistBills();
+    state.currentInvoice = invoice;
+    state.editingInvoiceId = null;
+
+    state.currentCart = [];
+    state.selectedCustomerId = '';
+    byId('savedCustomerSelect').value = '';
+    byId('walkInName').value = byId('walkInPhone').value = byId('walkInAddress').value = '';
+    renderAll();
+    switchTab('invoicing');
+    renderInvoice();
+    showToast(isEditingInvoice ? 'Invoice updated successfully' : 'Invoice generated successfully');
+  }
+
+  function renderCustomers() {
+    const purchases = {};
+    state.bills.forEach(b => {
+      const key = b.customer.phone + '|' + b.customer.name;
+      purchases[key] = (purchases[key] || 0) + b.grandTotal;
+    });
+    byId('customerTableBody').innerHTML = state.customers.map(c => {
+      const total = purchases[c.phone + '|' + c.name] || 0;
+      return `<tr><td>${c.name}</td><td>${c.phone}</td><td>${c.address}</td><td>${inr(total)}</td><td><div class="actions"><button class="btn ghost" onclick="openCustomerModal('${c.id}')">Edit</button><button class="btn danger" onclick="deleteCustomer('${c.id}')">Delete</button></div></td></tr>`;
+    }).join('') || '<tr><td colspan="5" class="muted">No customers yet.</td></tr>';
+  }
+
+  function openCustomerModal(id = null) {
+    state.editingCustomerId = id;
+    byId('customerModalTitle').textContent = id ? 'Edit Customer' : 'Add Customer';
+    const form = byId('customerForm'); form.reset();
+    if (id) {
+      const c = state.customers.find(x => x.id === id);
+      form.elements.name.value = c.name; form.elements.phone.value = c.phone; form.elements.address.value = c.address;
+    }
+    byId('customerModal').classList.add('active');
+  }
+
+  function deleteCustomer(id) {
+    if (!confirm('Delete this customer?')) return;
+    // @Mokardder - Customer DB operations here
+    state.customers = state.customers.filter(c => c.id !== id);
+    persistCustomers(); renderCustomers(); renderCustomerOptions(); showToast('Customer deleted');
+  }
+
+  function renderSavedInvoices() {
+    const body = byId('savedInvoicesTableBody');
+    body.innerHTML = state.bills.map(inv => `
+      <tr>
+        <td>${inv.id}</td>
+        <td>${new Date(inv.date).toLocaleString('en-IN')}</td>
+        <td>${inv.customer?.name || '-'}</td>
+        <td>${inv.customer?.phone || '-'}</td>
+        <td>${inv.items?.length || 0}</td>
+        <td>${inv.paymentMode || '-'}</td>
+        <td>${inr(inv.grandTotal)}</td>
+        <td><div class="actions"><button class="btn ghost" onclick="openSavedInvoice('${inv.id}')">Open</button></div></td>
+      </tr>
+    `).join('') || '<tr><td colspan="8" class="muted">No saved invoices yet.</td></tr>';
+  }
+
+  function openSavedInvoice(id) {
+    const inv = state.bills.find(x => x.id === id);
+    if (!inv) return showToast('Invoice not found');
+    state.currentInvoice = inv;
+    switchTab('invoicing');
+    renderInvoice();
+    showToast(`Opened ${inv.id}`);
+  }
+
+  function renderInvoice() {
+    const inv = state.currentInvoice || state.bills[0];
+    if (!inv) return byId('printableInvoice').innerHTML = '<p class="muted">No invoice generated yet.</p>';
+    const itemDiscount = inv.itemLevelDiscount || 0;
+    const billDiscount = inv.billDiscount || 0;
+    const totalDiscount = inv.discount || 0;
+    const discountDetails = [
+      itemDiscount > 0 ? `<p style="display:flex;justify-content:space-between"><span>Item Discount:</span><strong>${inr(itemDiscount)}</strong></p>` : '',
+      billDiscount > 0 ? `<p style="display:flex;justify-content:space-between"><span>Bill Discount (${inv.billDiscountType === 'percent' ? (inv.billDiscountValue + '%') : '₹'}):</span><strong>${inr(billDiscount)}</strong></p>` : '',
+      totalDiscount > 0 ? `<p style="display:flex;justify-content:space-between"><span>Total Discount:</span><strong>${inr(totalDiscount)}</strong></p>` : ''
+    ].join('');
+
+    const renderInvoiceDiscount = (item) => {
+      const qty = Math.max(1, +item.quantity || 1);
+      const lineGross = Math.max(0, qty * (+item.price || 0));
+      const lineDiscount = Math.max(0, +item.discount || 0);
+      if (lineDiscount <= 0 || lineGross <= 0) return inr(0);
+      if ((item.discountType || 'fixed') !== 'percent') return inr(lineDiscount);
+      const pct = Math.round((+item.discountValue || (lineDiscount / lineGross) * 100) * 100) / 100;
+      return `${inr(lineDiscount)} (${pct}%)`;
+    };
+
+    byId('printableInvoice').innerHTML = `
+      <div class="invoice-inner">
+      <div class="invoice-header-print"><div class="invoice-title-print" style="text-align:center; font-size:1.1rem; letter-spacing:.12em; font-weight:700; margin:4px 0 8px;">INVOICE</div><div class="invoice-head">
+        <div class="invoice-grid-head"><div>
+          <div class="logo-ph">Logo</div>
+          <h2 style="margin:8px 0 0">${byId('companyName').value}</h2>
+          <small class="muted">Professional Billing Invoice</small>
+          <p class="muted" style="margin:6px 0 4px">${byId('shopAddress').value}</p>
+          <p class="muted" style="margin:0 0 12px">${byId('shopContact').value || '-'}</p>
+          <div class="bill-to-box">
+            <p><strong>Bill To</strong></p>
+            <p><strong>Name:</strong> ${inv.customer.name}</p>
+            <p><strong>Contact:</strong> ${inv.customer.phone}</p>
+            <p><strong>Address:</strong> ${inv.customer.address}</p>
+          </div>
+        </div>
+        <div class="invoice-col-right">
+          <p><strong>Invoice #:</strong> ${inv.id}</p>
+          <p><strong>Date:</strong> ${new Date(inv.date).toLocaleString('en-IN')}</p>
+          <p><strong>Payment:</strong> ${inv.paymentMode}</p>
+        </div>
+      </div></div></div>
+      <div class="invoice-body-print">
+      <table>
+        <thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Discount</th><th>Total</th></tr></thead>
+        <tbody>${inv.items.map(i => `<tr><td>${i.name}</td><td>${i.quantity}</td><td>${inr(i.price)}</td><td>${renderInvoiceDiscount(i)}</td><td>${inr(i.quantity*i.price - i.discount)}</td></tr>`).join('')}</tbody>
+      </table>
+      </div>
+      <div class="invoice-footer-print">
+      <div style="max-width:360px; margin-left:auto">
+        <p style="display:flex;justify-content:space-between"><span>Subtotal:</span><strong>${inr(inv.subtotal)}</strong></p>
+        ${discountDetails}
+        <p style="display:flex;justify-content:space-between"><span>GST (${inv.gstPercent}%):</span><strong>${inr(inv.gst)}</strong></p>
+        <p style="display:flex;justify-content:space-between;font-size:1.1rem"><span>Total:</span><strong>${inr(inv.grandTotal)}</strong></p>
+      </div>
+      <p><strong>Amount in Words:</strong> ${numberToWordsIndian(inv.grandTotal)}</p>
+      <p class="muted" style="font-size:.82rem; border-top:1px solid var(--border); padding-top:8px; margin-top:8px;">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</p>
+      <p style="text-align:center; font-weight:600; margin:8px 0 4px;">Thank you for your business, Visit Again</p>
+      <p style="text-align:right">_________________<br><small>Authorized Signature</small></p>
+      </div>
+      </div>
+    `;
+  }
+
+  function renderAll() {
+    renderDashboard(); renderInventory(); renderBillingProducts(); renderCart(); renderCustomers(); renderCustomerOptions(); renderBusinessOptions(); renderSavedInvoices(); renderInvoice(); syncInvoiceEditUI();
+  }
+
+  function closeModal(id) { byId(id).classList.remove('active'); }
+
+  function switchTab(id) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === id));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+  }
+
+  document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+  document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(b.dataset.close)));
+
+  byId('inventorySearch').addEventListener('input', renderInventory);
+  byId('inventoryCategoryFilter').addEventListener('change', renderInventory);
+  byId('addItemBtn').addEventListener('click', () => openItemModal());
+  byId('itemCategorySelect').addEventListener('change', toggleNewCategoryInput);
+  document.querySelectorAll('.pricing-tab-btn').forEach(btn => btn.addEventListener('click', () => setPricingMode(btn.dataset.pricingMode)));
+  ['actualBuyingPrice','buyingDiscountType','buyingDiscountValue','sellingDiscountType','sellingDiscountValue','fixedBuyingPrice','fixedSellingPrice','costPrice','profitType','profitValue'].forEach(name => {
+    byId('itemForm').elements[name].addEventListener('input', updateItemFormComputedPrices);
+    byId('itemForm').elements[name].addEventListener('change', updateItemFormComputedPrices);
+  });
+  byId('itemForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const data = Object.fromEntries(fd.entries());
+    const chosenCategory = data.category === '__new__' ? (data.newCategory || '').trim() : (data.category || '').trim();
+    let item = computeInventoryPricing({
+      id: state.editingItemId || uid(),
+      name: data.name.trim(), description: data.description.trim(), category: chosenCategory,
+      pricingMode:data.pricingMode,
+      actualBuyingPrice:+data.actualBuyingPrice, buyingDiscountType:data.buyingDiscountType, buyingDiscountValue:+data.buyingDiscountValue,
+      sellingDiscountType:data.sellingDiscountType, sellingDiscountValue:+data.sellingDiscountValue,
+      fixedBuyingPrice:+data.fixedBuyingPrice, fixedSellingPrice:+data.fixedSellingPrice,
+      costPrice:+data.costPrice, profitType:data.profitType, profitValue:+data.profitValue, stock:+data.stock
+    });
+    if (!item.name || !item.category || item.stock < 0) return showToast('Please fill valid values');
+    if (state.editingItemId) state.inventory = state.inventory.map(i => i.id === item.id ? item : i);
+    else state.inventory.unshift(item);
+    persistInventory(); closeModal('itemModal'); renderAll(); showToast('Inventory saved');
+  });
+
+  byId('billingSearch').addEventListener('input', refreshProductGrid);
+  byId('billingCategoryFilter').addEventListener('change', refreshProductGrid);
+  byId('gstInput').addEventListener('input', calculateTotals);
+  byId('billDiscountType').addEventListener('change', calculateTotals);
+  byId('billDiscountValue').addEventListener('input', calculateTotals);
+  byId('customerSearch').addEventListener('input', renderCustomerOptions);
+  byId('savedCustomerSelect').addEventListener('change', (e) => applySelectedCustomer(e.target.value));
+  byId('proceedInvoice').addEventListener('click', proceedInvoice);
+  byId('addCustomerBtn').addEventListener('click', () => openCustomerModal());
+  byId('customerForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const data = Object.fromEntries(fd.entries());
+    if (!/^\d{10}$/.test(data.phone.trim())) return showToast('Customer phone must be 10 digits');
+    const rec = { id: state.editingCustomerId || uid(), name:data.name.trim(), phone:data.phone.trim(), address:data.address.trim() };
+    // @Mokardder - Customer DB operations here
+    if (state.editingCustomerId) state.customers = state.customers.map(c => c.id === rec.id ? rec : c);
+    else state.customers.unshift(rec);
+    persistCustomers(); closeModal('customerModal'); renderCustomers(); renderCustomerOptions(); showToast('Customer saved');
+  });
+
+  byId('printBtn').addEventListener('click', () => {
+    const inv = state.currentInvoice || state.bills[0];
+    queueInvoiceForServerSync(inv, 'print_or_download');
+    showToast('Invoice saved for server sync');
+    openInvoicePrintPopup();
+  });
+  byId('editInvoiceBtn').addEventListener('click', editCurrentInvoiceItems);
+  byId('businessProfileSelect').addEventListener('change', (e) => applyBusinessProfile(e.target.value));
+  byId('saveBusinessBtn').addEventListener('click', saveBusinessProfileFromInputs);
+  byId('companyName').addEventListener('input', renderInvoice);
+  byId('shopAddress').addEventListener('input', renderInvoice);
+  byId('shopContact').addEventListener('input', renderInvoice);
+  const appShell = document.querySelector('.app');
+  const sidebarEl = document.querySelector('.sidebar');
+  sidebarEl.addEventListener('mouseenter', () => appShell.classList.add('sidebar-expanded'));
+  sidebarEl.addEventListener('mouseleave', () => appShell.classList.remove('sidebar-expanded'));
+  byId('sidebarToggle').addEventListener('click', () => appShell.classList.toggle('sidebar-expanded'));
+  document.querySelectorAll('.tab-chip').forEach(btn => btn.addEventListener('click', () => setCustomerTab(btn.dataset.customerTab)));
+  byId('qaAddItem').addEventListener('click', () => { switchTab('inventory'); openItemModal(); });
+  byId('qaCreateBill').addEventListener('click', () => switchTab('billing'));
+  byId('qaAddCustomer').addEventListener('click', () => { switchTab('customers'); openCustomerModal(); });
+  byId('manualSyncBtn').addEventListener('click', syncNow);
+  byId('manualPullBtn').addEventListener('click', pullNow);
+
+  loadState();
+  renderAll();
+  updateSyncStatusChip(location.protocol === 'file:' ? 'limited' : 'idle');
+  setupAutoSync();
+
+  window.openItemModal = openItemModal;
+  window.deleteItem = deleteItem;
+  window.openProductModal = openProductModal;
+  window.addToCart = addToCart;
+  window.updateCartQty = updateCartQty;
+  window.updateCartDiscountType = updateCartDiscountType;
+  window.updateCartDiscount = updateCartDiscount;
+  window.removeCartItem = removeCartItem;
+  window.closeModal = closeModal;
+  window.openCustomerModal = openCustomerModal;
+  window.deleteCustomer = deleteCustomer;
+  window.openSavedInvoice = openSavedInvoice;
+</script>
+</body>
 </html>
