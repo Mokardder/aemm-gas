@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web Caller (Single File)</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 860px;
+      margin: 2rem auto;
+    }
+    video {
+      width: 100%;
+      max-width: 720px;
+      background: #111;
+      border-radius: 8px;
+    }
+    .row {
+      display: flex;
+      gap: .5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    input, button {
+      padding: .6rem;
+    }
+    #log {
+      white-space: pre-wrap;
+      background: #f6f6f6;
+      padding: .8rem;
+      border-radius: 8px;
+      min-height: 120px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Browser Caller (No local media)</h1>
+
+<div class="row">
+  <input id="callId" value="demo-call-001" />
+  <button id="startBtn">Start Call</button>
+  <button id="hangupBtn">Hangup</button>
+</div>
+
+<video id="remoteVideo" autoplay playsinline controls></video>
+
+<h3>Log</h3>
+<div id="log"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+
+<script>
+(() => {
+
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "YOUR_DB_URL",
+  projectId: "YOUR_PROJECT",
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const remoteVideo = document.getElementById("remoteVideo");
+const callIdInput = document.getElementById("callId");
+const startBtn = document.getElementById("startBtn");
+const hangupBtn = document.getElementById("hangupBtn");
+const logView = document.getElementById("log");
+
+let pc = null;
+let remoteStream = null;
+let answerRef = null;
+let androidCandidatesRef = null;
+
+const iceServers = [
+  { urls: "stun:stun.l.google.com:19302" }
+];
+
+function log(msg) {
+  logView.textContent += new Date().toISOString() + " " + msg + "\n";
+}
+
+function createPeerConnection(callId) {
+  pc = new RTCPeerConnection({ iceServers });
+
+  pc.addTransceiver("video", { direction: "recvonly" });
+
+  remoteStream = new MediaStream();
+  remoteVideo.srcObject = remoteStream;
+
+  pc.ontrack = (event) => {
+    event.streams[0].getTracks().forEach((track) => {
+      remoteStream.addTrack(track);
+    });
+    log("Remote track received");
+  };
+
+  pc.onicecandidate = async (event) => {
+    if (!event.candidate) return;
+
+    await db.ref(`calls/${callId}/candidates/browser`).push(event.candidate);
+  };
+}
+
+async function startCall() {
+  const callId = callIdInput.value.trim();
+  if (!callId) throw new Error("Call ID required");
+
+  createPeerConnection(callId);
+
+  const callRef = db.ref(`calls/${callId}`);
+  answerRef = callRef.child("answer");
+  androidCandidatesRef = callRef.child("candidates/android");
+
+  await callRef.remove();
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+
+  await callRef.child("offer").set(offer);
+
+  log("Offer sent");
+
+  answerRef.on("value", async (snap) => {
+    const answer = snap.val();
+    if (!answer || pc.currentRemoteDescription) return;
+
+    await pc.setRemoteDescription(new RTCSessionDescription(answer));
+    log("Answer received");
+  });
+
+  androidCandidatesRef.on("child_added", async (snap) => {
+    await pc.addIceCandidate(new RTCIceCandidate(snap.val()));
+  });
+}
+
+async function hangup() {
+  if (answerRef) answerRef.off();
+  if (androidCandidatesRef) androidCandidatesRef.off();
+
+  if (pc) pc.close();
+
+  if (remoteStream) {
+    remoteStream.getTracks().forEach(t => t.stop());
+  }
+
+  remoteVideo.srcObject = null;
+
+  const callId = callIdInput.value.trim();
+  if (callId) {
+    await db.ref(`calls/${callId}`).remove();
+  }
+
+  log("Call ended");
+}
+
+startBtn.onclick = () => startCall().catch(e => log(e.message));
+hangupBtn.onclick = () => hangup().catch(e => log(e.message));
+
+})();
+</script>
+
+</body>
+</html>
